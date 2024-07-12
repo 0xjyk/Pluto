@@ -69,12 +69,13 @@ void usage() {
 
 // preprocess each file, save preprocessed output to current working directory
 void preprocess() {
-
+    tempfiles = vec_init(num_files);
     for (int i = 0; i < num_files; i++) {
         // prepare file to hold pp output 
         char pp_file[PATH_MAX+1]; 
         strcat(pp_file, basename(infiles[i]));
         strcat(pp_file, pp_suffix);
+        vec_pushback(tempfiles, strdup(pp_file));
         
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
         int fd = open(pp_file, O_WRONLY | O_CREAT | O_TRUNC, mode);
@@ -97,12 +98,18 @@ void preprocess() {
             fprintf(stderr, "coudn't preprocess %s\n", infiles[i]);
             exit(EXIT_FAILURE);
         } 
-        printf("temp filename: %s\n", pp_file);
         *pp_file = '\0';
     }
 
 }
 
 void remove_tempfiles() {
-
+    if (!tempfiles)
+        return;
+    for (int i = 0; i < tempfiles->size; i++) {
+        char *file = vec_get(tempfiles, i);
+        unlink(file);
+        free(file);
+    }
+    vec_free(tempfiles);
 }

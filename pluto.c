@@ -12,7 +12,7 @@
 
 
 int main(int argc, char *argv[]) {
-    if (!atexit(remove_tempfiles)) {
+    if (atexit(remove_tempfiles)) {
         fprintf(stderr, "Couldn't set exit function\n");
         exit(EXIT_FAILURE);
     }

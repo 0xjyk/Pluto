@@ -22,6 +22,20 @@
 #define SETSCOPE(scope) (CGEN & ~(scope))
 
 
+
+/*
+ *  type declarations
+ */
+typedef struct vector {
+    size_t size; 
+    size_t alloc_size;
+    void **vec;
+} vector;
+typedef vector *Vector;
+
+/*
+ *  global variables
+ */
 static unsigned char JOBSCOPE = 0x7;
 static int num_files;
 static char **infiles;
@@ -31,6 +45,8 @@ static char *cwd = NULL;
 static char temp_dir_name[] = "/__temp__/";
 static char temp_dir[PATH_MAX];
 static char pp_suffix[] = ".pp";
+static Vector tempfiles = NULL;
+
 
 
 /*
@@ -42,6 +58,14 @@ void parseoptions(int argc, char **argv);
 void usage();
 void preprocess();
 void remove_tempfiles();
+
+// vector.c
+Vector vec_init(size_t size);
+void vec_free(Vector vec);
+void vec_resize(Vector vec, size_t size);
+void vec_pushback(Vector vec, void *ptr); 
+void *vec_get(Vector vec, size_t i); 
+void *vec_put(Vector vec, size_t i, void *ptr);
 
 
 
