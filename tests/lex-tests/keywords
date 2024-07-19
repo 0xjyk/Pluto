@@ -1,0 +1,29 @@
+auto
+break case 
+char
+const 
+default
+do 
+double
+else
+enum
+extern
+float
+for goto if 
+    inline
+int long long long 
+register 
+return register long do double auto
+int long short sizeof struct switch
+typedef typedef union unsigned 
+void volatile while _Alignas _Alignof
+_Atomic _Atomic 
+
+
+_Bool 
+
+
+_Complex _Complex 
+_Generic 
+_Imaginary     _Noreturn _Static_assert
+_Thread_local
