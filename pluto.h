@@ -6,11 +6,13 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stddef.h>
+#include <uchar.h>
 #include <libgen.h>
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 // pluto.h
 
@@ -24,6 +26,7 @@
 #define BUFLEN 4096
 #define MAXLINE 4096
 #define MINBUFLEN 32
+#define MAXSTRLEN 512
 #define BUFSIZE MAXLINE + BUFLEN + 1
 
 
@@ -72,6 +75,26 @@ typedef buffer *Buffer;
 typedef struct token {
     int type; 
     char *val; 
+    union intval {
+        unsigned long long int ull; 
+        long long int ll; 
+        unsigned long int ul; 
+        long int l; 
+        unsigned int u;
+        int i;
+    } intval;
+    union floatval {
+        long double ld; 
+        double d; 
+        float f; 
+    } floatval;
+    union charval { 
+        int c; 
+        char16_t c16; 
+        char32_t c32; 
+        wchar_t wc;
+    } charval;
+    char *strval;
     location loc;
 } token;
 typedef token *Token;
@@ -142,6 +165,15 @@ int lex();
 void lexdriver(char *pp_file);
 int is_keyword(); 
 int is_identifier();
+int is_punct();
+int is_constant();
+int is_intconst();
+int is_floatconst(); 
+int is_enumconst() ;
+int is_charconst();
+int is_string();
+int is_escapeseq(int *val, char *s);
+int make_error();
 
 // parse.c 
 void parse(char *pp_file);

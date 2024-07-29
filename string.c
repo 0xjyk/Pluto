@@ -16,14 +16,14 @@ int hash(unsigned char *str) {
     while (c = *str++)
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
     // ensure hash is between 0-NUM_BUCKETS
-    hash &= ~(NUM_BUCKETS - 1);
+    hash &= (NUM_BUCKETS - 1);
     return hash;
 };
 
 char *make_string(char *str, int len) {
     // hash str to get the appropriate bucket
-    struct string *strlist = buckets[hash(str)];
-    struct string *s = strlist;
+    struct string **strlist = &buckets[hash(str)];
+    struct string *s = *strlist;
 
     // if string already in string pool, return existing string
     while(s) {
@@ -31,11 +31,14 @@ char *make_string(char *str, int len) {
         if (s->len == len) {
             char *so = str; 
             char *st = s->str; 
-            int i = 0;
-            while (i++ <= len && *so++ == *st++) {}
+            int i = len;
+            while (i && (*so++ == *st++)) {
+                i--; 
+            }
             // its a match if len chars were seen successfully and the end chars matched
-            if (--i == len && *(--so) == *(--st)) 
+            if (i == 0) {
                 return s->str;
+            }
         }
         s = s->next;
     }
@@ -43,8 +46,8 @@ char *make_string(char *str, int len) {
     struct string *ss = alloc(sizeof(struct string), PERM); 
     ss->str = strloc(str, len, PERM); 
     ss->len = len; 
-    ss->next = strlist; 
-    strlist = ss;
+    ss->next = *strlist; 
+    *strlist = ss;
     return ss->str;
 }
 
@@ -54,9 +57,10 @@ void dump_stringpool() {
         struct string *s = buckets[i]; 
         if (s) {
             fprintf(stdout, "Bucket [%d]\n", i); 
-            while (s)
+            while (s) {
                 fprintf(stdout, "> \"%s\"\n", s->str);
-            s = s->next;
+                s = s->next;
+            }
         }
     }
 }

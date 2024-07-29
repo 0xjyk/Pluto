@@ -1,6 +1,7 @@
 #include "pluto.h"
 #include "include/charmap.h"
 
+
 token t;
 
 
@@ -10,50 +11,79 @@ int lex() {
         // while the buffer contains characters read them 
         while (buf.curr < buf.bufend) {
             // if buffer contains less then MINBUFLEN characters refill - done to simplify reading
-            if ((buf.bufend - buf.curr) <= MINBUFLEN && !pp_read_complete) 
+            if ((buf.bufend - buf.curr) <= MINBUFLEN && pp_read_complete) 
                 fillbuf();
-            // check if next token is a keyword
+            
+            // extra indirection casue the patterns can be interleaved
+            while ((*buf.curr == '#') ||
+                    (map[*buf.curr] & BLANK) ||
+                    (map[*buf.curr] & NEWLINE)) {
+                // TODO process GNU pp directives
+                if (*buf.curr == '#') {
+                    while (!(map[*buf.curr++] & NEWLINE)) {}
+                    loc.x = 0;
+                // skip blanks
+                } else if (map[*buf.curr] & BLANK) {
+                    buf.curr++; 
+                    loc.x++; 
+                // skip newlines
+                } else if (map[*buf.curr] & NEWLINE) {
+                    buf.curr++; 
+                    loc.x = 0; 
+                    loc.y++;
+                }
+            }
+
+            if (!pp_read_complete && buf.curr == (buf.bufend - 1)) {
+                return EOI; 
+            }
+
             int token_len = 0;
-            if (map[*buf.curr] & LETTER) {
+            // check if next token is a keyword
+            if (token_len = is_string()) {
+                t.loc = loc; 
+                buf.curr += token_len; 
+                loc.x += token_len;
+                return t.type;
+             // handle illegal input            
+            } if (map[*buf.curr] & LETTER) {
                 // check if it's a keyword 
                 if (token_len = is_keyword()) {
                     // update the global token with the token details
                     t.type = KEYWORD;
-                    t.val = strloc(buf.curr, token_len, PERM);
+                    t.val = make_string(buf.curr, token_len);
                     t.loc = loc;
                     buf.curr += token_len; 
-                    // update file location
-                    if (map[*buf.curr] & NEWLINE) {
-                        loc.x = 0; 
-                        loc.y++; 
-                    } else {
-                        loc.x += token_len;
-                    }
+                    loc.x += token_len;
                     return KEYWORD;
                 // check if it's an identifier
                 } else if (token_len = is_identifier()) {
                     t.type = ID; 
-                    t.val = strloc(buf.curr, token_len, PERM); 
+                    t.val = make_string(buf.curr, token_len);
                     t.loc = loc; 
                     buf.curr += token_len; 
-                    // update file location
-                    if (map[*buf.curr] & NEWLINE) {
-                        loc.x = 0; 
-                        loc.y++; 
-                    } else {
-                        loc.x += token_len;
-                    }
+                    loc.x += token_len;
                     return ID;
                 }
-                // error: TODO
-                return -1;
-            }
-            // TODO: process GNU cpp directives
-            if (*buf.curr == '#') {
-                while (*buf.curr++ != '\n') {}
-                loc.x = 0; 
+                // if neither, then its an error 
+                return make_error();
+            } else if (token_len = is_constant()) {
+                // token updatation is done internally
+                t.val = make_string(buf.curr, token_len);
+                t.loc = loc; 
+                buf.curr += token_len;
+                loc.x += token_len;
+                return t.type;
+
+            } else if (token_len = is_punct()) {
+                t.type = PUNCT;
+                t.val = make_string(buf.curr, token_len);
+                t.loc = loc;
+                buf.curr += token_len;
+                loc.x += token_len;
+                return PUNCT;
             } else {
-                buf.curr++; 
+                return make_error();
             }
         }
         fillbuf(); 
@@ -88,10 +118,62 @@ void lexdriver(char *pp_file) {
         } else if (tok == KEYWORD) {
             fprintf(fp, "KEYWORD \"%s\"\n", t.val);
             fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
-        } else {
-            fprintf(fp, "ERROR!\n");
+        } else if (tok == PUNCT) {
+            fprintf(fp, "PUNCT \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == ULLONG) {
+            fprintf(fp, "ULLONG \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == SLLONG) {
+            fprintf(fp, "SLLONG \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == ULONG) {
+            fprintf(fp, "ULONG \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == SLONG) {
+            fprintf(fp, "SLONG \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == UINT) {
+            fprintf(fp, "UINT \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == SINT) {
+            fprintf(fp, "SINT \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == SDOUBLE) {
+            fprintf(fp, "SDOUBLE \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == LDOUBLE) {
+            fprintf(fp, "LDOUBLE \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == SFLOAT) {
+            fprintf(fp, "SFLOAT \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == UCHAR) {
+            fprintf(fp, "CHAR '%c'\n", t.charval.c); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == STR) {
+            fprintf(fp, "STR \"%s\"\n", t.strval); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else if (tok == ERROR) {
+            fprintf(fp, "ERROR \"%s\"\n", t.val); 
+            fprintf(fp, "Location: %d, %d\n", t.loc.x, t.loc.y);
+        } else{
+            fprintf(fp, "INTERNAL ERROR!\n");
         }
     }
+}
+
+int make_error() {
+    char *s = buf.curr; 
+    // escape the characters till the next token terminator
+    while (!(map[*s] & (BLANK|NEWLINE))) {
+        s++;
+    }
+    t.type = ERROR; 
+    t.val = make_string(buf.curr, s - buf.curr);
+    t.loc = loc; 
+    loc.x += s - buf.curr;
+    return ERROR;
 }
 
 int is_identifier() {
@@ -106,6 +188,485 @@ int is_identifier() {
     return token_len;
 }
 
+int is_constant() {
+    int token_len = 0; 
+    // the precedence of evaluation is determined via the 
+    // lazy evaluation of the || operator
+    if ((token_len = is_floatconst()) || 
+            (token_len = is_intconst()) ||
+            (token_len = is_charconst())) {
+        return token_len;
+    }
+    return 0;
+}
+
+int is_intconst() {
+    char *s = buf.curr;
+    int token_len = 0; 
+    char unsigned_flag = 0; 
+    char long_flag = 0; 
+    char llong_flag = 0;
+    // assume the largest size and narrow down based on the constants needs
+    // constants only represent magnitude, thus ull is the largest container 
+    unsigned long long int value = 0;
+
+
+    // three possibilities (1) hex (2) octal (3) decimal
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+        while((map[s[0]] & DIGIT) || (map[s[0]] & HEX)) {
+            value <<= 4;
+            if (map[s[0]] & DIGIT) {
+                value += (s[0] - 48);
+            } else if (map[s[0]] <= 70) {
+                value += (s[0] - 55);
+            } else {
+                value += (s[0] - 87);
+            }
+            s++;
+        }
+        if (s == (buf.curr + 2)) {
+            // error - need hex digits after hex prefix
+            return 0;
+        }
+    } else if (s[0] == '0') {
+        // use s >- 0 && s <= 7
+        while ((map[s[0]] & DIGIT) && (s[0] <= 55)) {
+            value *= 8; 
+            value += (s[0] - 48);
+            s++;
+        }
+    
+    // use s >= 1 && s <= 9
+    } else if ((map[s[0]] & DIGIT) && s[0] != '0') {
+        while (map[s[0]] & DIGIT) {
+            value *= 10; 
+            value += (s[0] - 48);
+            s++; 
+        }
+    }
+    
+    // check storage size hint and signedness
+    if (s[0] == 'u' || s[0] == 'U') {
+        unsigned_flag = 1;
+        s++;
+        if (s[0] == 'l' || s[0] == 'L') {
+            long_flag = 1;
+            s++; 
+            if (s[0] == 'l' || s[0] == 'L') {
+                llong_flag = long_flag--;
+                s++;
+            }
+        }
+    } else if (s[0] == 'l' || s[0] == 'L') {
+        long_flag = 1; 
+        s++; 
+        if (s[0] == 'l' || s[0] == 'L') {
+            llong_flag = long_flag--;
+            s++; 
+            if (s[0] == 'u' || s[0] == 'U') {
+                unsigned_flag = 1;
+                s++;
+            }
+        }
+    }
+    token_len = s - buf.curr;
+    // based on the value of the intconst & its given size hint and signedness
+    // we need allocate the appropriate intconst bucket
+    // if the specified value is too large for the largest container, an error is reported 
+    // and the value is cast into one that fits in the largest container
+    if (unsigned_flag && llong_flag) {
+
+        t.type = ULLONG;  
+        t.intval.ull = value;
+        if (value > ULLONG_MAX) {
+            // error: too big
+        }
+    } else if (llong_flag) {
+        t.type = SLLONG;
+        t.intval.ll = (long long int) value;
+        if (value > LLONG_MAX) {
+            // error: too big
+        }
+    } else if (unsigned_flag && long_flag) {
+        t.type = ULONG;
+        t.intval.ul = (unsigned long int) value;
+        if (value > ULONG_MAX) {
+            t.type = ULLONG;
+            t.intval.ull = value;
+            if (value > ULLONG_MAX) {
+                // error too big
+            } 
+        }
+    } else if (long_flag) {
+        t.type = SLONG; 
+        t.intval.l = (long int) value; 
+        if (value > LONG_MAX) { 
+            t.type = SLLONG; 
+            t.intval.ll = (long long int) value;
+            if (value > LLONG_MAX) {
+                // error too big
+            } 
+        }
+    } else if (unsigned_flag) {
+        t.type = UINT; 
+        t.intval.u = (unsigned int) value; 
+        if (value > UINT_MAX) {
+            t.type = ULONG; 
+            t.intval.ul = (unsigned long int) value; 
+            if (value > ULONG_MAX) {
+                t.type = ULLONG; 
+                t.intval.ull = (unsigned long long int) value; 
+                if (value > ULLONG_MAX) {
+                    // error too big
+                }
+            }
+        }
+    } else {
+        t.type = SINT; 
+        t.intval.i = (int) value; 
+        if (value > INT_MAX) {
+            t.type = SLONG; 
+            t.intval.l = (long int) value; 
+            if (value > LONG_MAX) {
+                t.type = SLLONG; 
+                t.intval.ll = (long long int) value; 
+                if (value > LLONG_MAX) {
+                    // error too big 
+                }
+            }
+        }
+           
+    }
+    return token_len;
+}
+
+int is_floatconst() {
+    char *s = buf.curr;
+    int token_len = 0;
+    // default is double
+    char double_flag = 1;
+    // user specifies either of these
+    char float_flag = 0; 
+    char longdouble_flag = 0;
+
+
+    // decimal float const
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+        while (map[s[0]] & (HEX | DIGIT)) {
+            s++; 
+        }
+        if (s[0] == '.') {
+            s++;
+            while (map[s[0]] & (HEX | DIGIT)) {
+                s++; 
+            }
+            if (s[0] == 'p' || s[0] == 'P') {
+                s++; 
+                if (s[0] == '+' || s[0] == '-') {
+                    s++; 
+                }
+                if (map[s[0]] & DIGIT) {
+                    while (map[s[0]] & DIGIT) {
+                        s++;
+                    }
+                } else {
+                    // error - required digit 
+                }
+            }
+        } else if (s[0] == 'p' || s[0] == 'P') {
+            s++; 
+            if (s[0] == '+' || s[0] == '-') {
+                s++; 
+            }
+            if (map[s[0]] & DIGIT) {
+                while (map[s[0]] & DIGIT) {
+                     s++;
+                }
+            } else {
+                 // error - required digit 
+             }
+
+        } else {
+            // possibly an int 
+            return 0;
+        }
+        /*
+        while (map[s[0]]&DIGIT) {
+            s++; 
+        }
+        */
+    } else if (map[s[0]] & DIGIT || s[0] == '.') {
+        while (map[s[0]] & DIGIT) {
+            s++; 
+        }
+        if (s[0] == '.') {
+            s++;
+            while (map[s[0]] & DIGIT) {
+                s++; 
+            }
+            if (s[0] == 'e' || s[0] == 'E') {
+                s++; 
+                if (s[0] == '+' || s[0] == '-') {
+                    s++; 
+                }
+                if (map[s[0]] & DIGIT) {
+                    while (map[s[0]] & DIGIT) {
+                        s++;
+                    }
+                } else {
+                    // error - required digit 
+                }
+            }
+        } else if (s[0] == 'e' || s[0] == 'E') {
+            s++; 
+            if (s[0] == '+' || s[0] == '-') {
+                s++; 
+            }
+            if (map[s[0]] & DIGIT) {
+                while (map[s[0]] & DIGIT) {
+                     s++;
+                }
+            } else {
+                 // error - required digit 
+             }
+
+        } else {
+            // possibly an int 
+            return 0;
+        }
+        /*
+        while (map[s[0]]&DIGIT) {
+            s++; 
+        }
+        */
+    // hex float constant
+    }
+    // optional floating suffix 
+    if (s[0] == 'f' || s[0] == 'F') {
+        double_flag = 0; 
+        float_flag = 1;
+        s++;
+    } else if (s[0] == 'l' || s[0] == 'L') {
+        double_flag = 0; 
+        longdouble_flag = 1;
+        s++;
+    }
+    // use stdlib for the heavy lifting cause who wants to deal with floats
+
+    if (double_flag) {
+        t.type = SDOUBLE;
+        t.floatval.d = strtod(buf.curr, &s);
+        // check overflow 
+        if (errno == ERANGE) {
+            // error 
+        }
+    } else if (longdouble_flag) {
+        t.type = LDOUBLE;
+        t.floatval.ld = strtold(buf.curr, &s); 
+        s++;
+        // check overflow
+        if (errno == ERANGE) {
+            // error 
+        }
+    } else if (float_flag) {
+        t.type = SFLOAT;
+        t.floatval.f = strtof(buf.curr, &s);
+        s++;
+        // check overflow 
+        if (errno == ERANGE) {
+            // error 
+        }
+    }
+    token_len = s - buf.curr;
+    return token_len;
+}
+
+int is_enumconst() {
+    return 0;
+}
+
+int is_charconst() {
+    char *s = buf.curr; 
+    int token_len = 0; 
+    char char_flag = 0; 
+    int val = 0;
+    // TODO: need to add support
+    char wchar_flag = 0; 
+    char char16_flag = 0; 
+    char char32_flag = 0;
+
+    // determine storage size
+    if (s[0] == '\'') {
+        char_flag = 1; 
+        s++;
+        // parse contents
+        if (s[0] == '\\') {
+            int esc_len = is_escapeseq(&val, s);
+            if (!esc_len) {
+                // error
+            }
+            s += esc_len;
+            if (s[0] != '\'') {
+                // error - only single chars allowed 
+            }
+            s++;
+        // not an escape sequence
+        } else if (s[1] == '\'') {
+            val = s[0];
+            s += 2;
+        } else {
+            // error 
+        }
+        t.type = UCHAR; 
+        t.charval.c = val;
+        return (s - buf.curr);
+    } else if ((s[0] == 'u') &&
+            (s[1] == '\'')) {
+        char16_flag = 1;
+        s += 2;
+        // error - pluto is yet to support
+    } else if ((s[0] == 'U') &&
+            (s[1] == '\'')) {
+        char32_flag = 1;
+        s += 2;
+        // error - pluto is yet to support
+    } else if ((s[0] == 'L') &&
+            (s[1] == '\'')) {
+        wchar_flag = 1;
+        s += 2;
+        // error - pluto is yet to support
+    } else 
+        return 0;
+}
+
+int is_escapeseq(int *val, char *s) {
+    char *olds = s;
+
+    if (s[0] == '\\') {
+        switch (s[1]) {
+            case '\'': 
+                *val = '\'';
+                return 2; 
+            case '\"': 
+                *val = '\"';
+                return 2;
+            case '?': 
+                *val = '\?';
+                return 2;
+            case '\\':  
+                *val = '\\';
+                return 2;
+            case 'v': 
+                *val = '\v';
+                return 2;
+            case 'f': 
+                *val = '\f';
+                return 2;
+            case 'r':
+                *val = '\r';
+                return 2;
+            case 't':
+                *val = '\t'; 
+                return 2;
+            case 'n': case '\n':
+                *val = '\n';
+                return 2;
+            case 'a':
+                *val = '\a';
+                return 2; 
+            case 'b':
+                *val = '\b';
+                return 2;
+            // hex 
+            case 'x': case 'X':
+                s += 2;
+                if (!(map[s[0]] & (HEX | DIGIT))) {
+                    // error - need a hex digit after \x
+                }
+                while (map[s[0]] & (HEX | DIGIT)) {
+                    (*val) <<= 4; 
+                     if (map[s[0]] & DIGIT) {
+                        *val += (s[0] - 48);
+                    } else if (map[s[0]] <= 70) {
+                        *val += (s[0] - 55);
+                    } else {
+                        *val += (s[0] - 87);
+                    }
+                    s++;
+                }
+                // hex
+                if (*val > 0xFF) {
+                    // error val can't be more than 255 
+                }
+                return (s - olds);
+            // octal
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                s++;
+                for (int i = 0; (i < 3) && (map[s[0]] & DIGIT); i++, s++) {
+                    if (s[0] == '8' || s[0] == '9') 
+                        break;
+                    *val << 3;
+                    *val += (s[0] - '0');
+                }
+                return (s - olds);
+            default: 
+                return 0;
+        }
+    }
+    return 0;
+}
+
+int is_string() {
+    // ensure buff has at least MAXSTRLEN chars
+    if ((buf.bufend - buf.curr) <= MAXSTRLEN && pp_read_complete) 
+        fillbuf();
+
+    char *s = buf.curr;
+    char strbuf[MAXSTRLEN + 1] = "";
+    int escapechar = 0;
+    int sbindex = 0;
+    // make sure buffer has at least max str len characters
+    switch (s[0]) {
+        case 'u':
+            if (((s[1] == '8') && (s[2] == '"')) ||
+                        (s[1] == '"')) {
+                // error - pluto doesn't support u8/u
+            }
+            break;
+        case 'U': case 'L':
+            if (s[1] == '"') {
+                // error - pluto doesn't support U/L
+            }
+            break;
+        case '"':
+            s++;
+            while(s[0] != '"') {
+                if (sbindex > MAXSTRLEN) {
+                    // error - str limit is MAXSTRLEN
+                    break;
+                }
+                int esc_len = 0;
+                if (esc_len = is_escapeseq(&escapechar, s)) {
+                    strbuf[sbindex++] = (char)escapechar;
+                    s += esc_len;
+                } else {
+                    strbuf[sbindex++] = *s; 
+                    s++;
+                }
+            }
+            s++;
+            strbuf[sbindex] = '\0';
+            t.type = STR; 
+            t.strval = make_string(strbuf, sbindex);
+            return (s - buf.curr);
+        default: 
+            return 0;
+    }
+    return 0;
+}
 int is_keyword() {
     char *s = buf.curr; 
     int buflen = buf.bufend - buf.curr;

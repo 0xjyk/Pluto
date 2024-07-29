@@ -1,0 +1,111 @@
+ // Mixed case and numbers
+    "aA1bB2cC3dD4eE5fF6gG7hH8iI9jJ0",
+
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+"This is a long string \
+that spans multiple lines.",
+"null \0 character."
+"null \0 character."
+"Hex escape: \x41\x42\x43",
+"\nhello"
+"hi\n"
+"this is a random string.\n" " will gcc concatenate me?" 
+"what about me?"
+// test_strings.c
+const char* test_strings[] = {
+    // Basic strings
+    "Hello, World!",
+    "abcdefghijklmnopqrstuvwxyz",
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "0123456789",
+    "This is a simple string.",
+    "Special characters: !@#$%^&*()",
+    "Quotes inside: \"Hello, World!\"",
+    
+    // Escape sequences
+    "Tab\tseparated",
+    "New\nline",
+    "Back\\slash",
+    "Single quote: \'",
+    "Double quote: \"",
+    "Question mark: \?",
+    "Alert (bell): \a",
+    "Backspace: \b",
+    "Form feed: \f",
+    "Carriage return: \r",
+    "Vertical tab: \v",
+    
+    // Hexadecimal and octal escapes
+    "Hex escape: \x41\x42\x43",
+    //"Octal escape: \101\102\103",
+    
+    
+    // Null character inside string
+    "Null char \0 in the middle",
+    // Multiple lines
+    "This is a long string \
+    that spans multiple lines.",
+
+    // Longest string (510 characters)
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin nec tortor at orci aliquam dictum non a libero. Vestibulum fermentum velit velit, eu vestibulum justo egestas eget. Integer vel augue nec lorem lacinia faucibus a nec nulla. Praesent ut nisi in urna aliquam facilisis. Integer malesuada sollicitudin urna at laoreet. Curabitur consequat fringilla eros, et tempus justo feugiat sit amet. Pellentesque id ultricies justo, vel fermentum nulla. ",
+    
+    // Combining multiple escape sequences
+    "Mix: \n\t\a\b\f\r\v\\\"\'",
+    
+    // Concatenation of strings
+    "First part" " second part",
+    
+    // Embedded null character
+    "First part\0 second part",
+    
+    // String with a very long content
+    "This string contains a very long content, much longer than the usual. It is intended to test the handling of long strings in C programs. The length of this string should be properly managed to avoid overflow issues and ensure proper functioning of the code that processes this string. Here is some more content to increase the length even further. And here is some more content. And even more. And just a bit more to make it really long.",
+    
+    // String with special characters
+    "Special chars: ~`!@#$%^&*()_+-={}[]|\\:;\"'<>,.?/",
+    
+    // Multi-line string literals
+    "This is a long string that \
+    spans multiple lines to test \
+    the concatenation of multi-line \
+    string literals in C.",
+    
+    // Empty string
+    "",
+    
+    // Single character strings
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+    "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+    "u", "v", "w", "x", "y", "z",
+    
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+    "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+    "U", "V", "W", "X", "Y", "Z",
+    
+    // Strings with whitespace
+    "  Leading and trailing whitespace  ",
+    
+    // Strings with newlines
+    "First line\nSecond line\nThird line",
+    
+    // Strings with carriage returns
+    "First line\rSecond line\rThird line",
+    
+    // Strings with tabs
+    "First column\tSecond column\tThird column",
+    
+    // String with all possible escape sequences
+    "All escapes: \a\b\f\n\r\t\v\\\'\"\?",
+    
+    // Concatenated with special characters
+    "Concatenated" " with special" " characters" " and escapes: \n\t\\",
+    
+    // Hexadecimal digits
+    "0123456789ABCDEFabcdef",
+    
+    // Mixed case and numbers
+    "aA1bB2cC3dD4eE5fF6gG7hH8iI9jJ0", 
+
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+    

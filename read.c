@@ -32,7 +32,7 @@ void fillbuf() {
             *tempcurr++ = *buf.curr++;
         }
     }
-    assert(&buf.buf[BUFSIZE-1] - tempcurr >= BUFLEN);
+    assert((&buf.buf[BUFSIZE-1] - tempcurr) >= BUFLEN);
     // read BUFLEN bytes into buffer starting at tempcurr
     ssize_t bytes_read = read(buf.fd, tempcurr, BUFLEN); 
     if (bytes_read < 0) {
