@@ -27,6 +27,7 @@
 #define MAXLINE 4096
 #define MINBUFLEN 32
 #define MAXSTRLEN 512
+#define STRBUFLEN (MAXSTRLEN + 3)
 #define BUFSIZE MAXLINE + BUFLEN + 1
 
 
@@ -72,6 +73,7 @@ typedef struct buffer {
 } buffer;
 typedef buffer *Buffer;
 
+/*
 typedef struct token {
     int type; 
     char *val; 
@@ -97,6 +99,36 @@ typedef struct token {
     char *strval;
     location loc;
 } token;
+*/
+
+typedef struct token {
+    int type; 
+    int subtype;
+    union val {
+        union intval {
+            unsigned long long int ull; 
+            long long int ll; 
+            unsigned long int ul; 
+            long int l; 
+            unsigned int u;
+            int i;
+        } intval;
+        union floatval {
+            long double ld; 
+            double d; 
+            float f;
+        } floatval;
+        union charval {
+            int c; 
+            // char 16,32 & wc not supported
+        } charval; 
+        char *strval;
+    } val;
+    // length of the original string before compressing into val
+    int len;
+    location loc;
+} token;
+
 typedef token *Token;
 
 
@@ -126,6 +158,8 @@ extern location loc;
 extern buffer buf;
 extern token t;
 extern int pp_read_complete;
+extern int num_warnings;
+extern int num_errors;
 
 /*
  *  forward declartions
@@ -159,6 +193,7 @@ void dump_stringpool();
 // read.c 
 void fillbuf(); 
 void bufinit(char *pp_file);
+void ensure_buflen(int len);
 
 // lex.c 
 int lex();
@@ -178,5 +213,9 @@ int make_error();
 // parse.c 
 void parse(char *pp_file);
 void print_cpp();
+
+// error.c 
+void warning(const char *msg);
+void error(const char *msg);
 
 #endif

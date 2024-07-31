@@ -39,7 +39,7 @@ void fillbuf() {
         printf("couldn't read %s\n", buf.file);
         exit(EXIT_FAILURE);
     }
-    pp_read_complete = bytes_read;
+    pp_read_complete = !(bytes_read);
     buf.bufend = tempcurr + bytes_read;
     // in either case buf->curr starts at the begining of the buffer
     buf.curr = buf.buf;
@@ -66,4 +66,9 @@ void bufinit(char *pp_file) {
     loc.y = 1;
 }
 
+void ensure_buflen(int len) {
+    if (((buf.bufend - buf.curr) < len) && !pp_read_complete) {
+        fillbuf();
+    }
+}
 
