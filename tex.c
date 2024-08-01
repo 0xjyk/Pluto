@@ -152,26 +152,392 @@ Token is_contants() {
     Token t = NULL;
     if ((t = is_floatconst()) || 
             (t = is_intconst()) ||
-            (t = is_char_const())) {
+            (t = is_charconst())) {
         return t;
     }
     return NULL;
 }
 
-Token is_intconst() {
 
+int is_intconst() {
+    char *s = buf.curr;
+    int err = 0;
+    char unsigned_flag = 0;
+    char long_flag = 0;
+    char llong_flag = 0;
+    // assume the largest size and narrow down based on the constants needs
+    // constants only represent magnitude, thus ull is the largest container
+    unsigned long long int value = 0;
+
+
+    // three possibilities (1) hex (2) octal (3) decimal
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+        while((map[s[0]] & DIGIT) || (map[s[0]] & HEX)) {
+            value <<= 4;
+            if (map[s[0]] & DIGIT) {
+                value += (s[0] - 48);
+            } else if (map[s[0]] <= 70) {
+                value += (s[0] - 55);
+            } else {
+                value += (s[0] - 87);
+            }
+            s++;
+        }
+        if (s == (buf.curr + 2)) {
+            // error - need hex digits after hex prefix
+            err = 1;
+            error(&loc, "hexadecimal integer constant requires hex digits after 0x");
+            token tok = {.type=ERROR, .subtype=SINT, .len=(s-buf.curr), .loc=loc};
+            tok.val.strval = make_string(buf.curr, (s - buf.curr));
+            return make_token(tok);
+        }
+    } else if (s[0] == '0') {
+        // use s >- 0 && s <= 7
+        while ((map[s[0]] & DIGIT) && (s[0] <= 55)) {
+            value *= 8;
+            value += (s[0] - 48);
+            s++;
+        }
+
+    // use s >= 1 && s <= 9
+    } else if ((map[s[0]] & DIGIT) && s[0] != '0') {
+        while (map[s[0]] & DIGIT) {
+            value *= 10;
+            value += (s[0] - 48);
+            s++;
+        }
+    }
+
+    // check storage size hint and signedness
+    if (s[0] == 'u' || s[0] == 'U') {
+        unsigned_flag = 1;
+        s++;
+        if (s[0] == 'l' || s[0] == 'L') {
+            long_flag = 1;
+            s++;
+            if (s[0] == 'l' || s[0] == 'L') {
+                llong_flag = long_flag--;
+                s++;
+            }
+        }
+    } else if (s[0] == 'l' || s[0] == 'L') {
+        long_flag = 1;
+        s++;
+        if (s[0] == 'l' || s[0] == 'L') {
+            llong_flag = long_flag--;
+            s++;
+            if (s[0] == 'u' || s[0] == 'U') {
+                unsigned_flag = 1;
+                s++;
+            }
+        }
+    }
+    token tok = {.len=(s-buf.curr), .loc=loc};
+    // based on the value of the intconst & its given size hint and signedness
+    // we need allocate the appropriate intconst bucket
+    // if the specified value is too large for the largest container, an error is reported
+    // and the value is cast into one that fits in the largest container
+    if (unsigned_flag && llong_flag) {
+
+        tok.type = ULLONG;
+        tok.val.intval.ull = value;
+        if (value > ULLONG_MAX) {
+            tok.type = ERROR;
+            tok.subtype = ULLONG;
+            tok.val.strval = make_string(buf.curr, s - buf.curr);
+            error(&loc, "int const (unsigned long long) larger than ULLONG_MAX");
+        }
+    } else if (llong_flag) {
+        tok.type = SLLONG;
+        tok.val.intval.ll = (long long int) value;
+        if (value > LLONG_MAX) {
+            tok.type = ERROR;
+            tok.subtype = SLLONG;
+            tok.val.strval = make_string(buf.curr, s - buf.curr);
+            error(&loc, "int const (signed long long) larger than LLONG_MAX");
+        }
+    } else if (unsigned_flag && long_flag) {
+        tok.type = ULONG;
+        tok.intval.ul = (unsigned long int) value;
+        if (value > ULONG_MAX) {
+            tok.type = ULLONG;
+            tok.val.intval.ull = value;
+            if (value > ULLONG_MAX) {
+                // error too big
+                tok.type = ERROR;
+                tok.subtype = ULLONG;
+                tok.val.strval = make_string(buf.curr, s - buf.curr);
+                error(&loc, "int const (unsigned long long) larger than ULLONG_MAX");
+            }
+        }
+    } else if (long_flag) {
+        tok.type = SLONG;
+        tok.val.intval.l = (long int) value;
+        if (value > LONG_MAX) {
+            tok.type = SLLONG;
+            tok.val.intval.ll = (long long int) value;
+            if (value > LLONG_MAX) {
+                // error too big
+                tok.type = ERROR;
+                tok.subtype = SLLONG;
+                tok.val.strval = make_string(buf.curr, s - buf.curr);
+                error(&loc, "int const (signed long long) larger than LLONG_MAX");
+            }
+        }
+    } else if (unsigned_flag) {
+        tok.type = UINT;
+        tok.val.intval.u = (unsigned int) value;
+        if (value > UINT_MAX) {
+            tok.type = ULONG;
+            tok.val.intval.ul = (unsigned long int) value;
+            if (value > ULONG_MAX) {
+                tok.type = ULLONG;
+                tok.val.intval.ull = (unsigned long long int) value;
+                if (value > ULLONG_MAX) {
+                    // error too big
+                    tok.type = ERROR;
+                    tok.subtype = ULLONG;
+                    tok.val.strval = make_string(buf.curr, s - buf.curr);
+                    error(&loc, "int const (unsigned long long) larger than ULLONG_MAX");
+                }
+            }
+        }
+    } else {
+        tok.type = SINT;
+        tok.val.intval.i = (int) value;
+        if (value > INT_MAX) {
+            tok.type = SLONG;
+            tok.val.intval.l = (long int) value;
+            if (value > LONG_MAX) {
+                tok.type = SLLONG;
+                tok.val.intval.ll = (long long int) value;
+                if (value > LLONG_MAX) {
+                    // error too big
+                    tok.type = ERROR;
+                    tok.subtype = SLLONG;
+                    tok.val.strval = make_string(buf.curr, s - buf.curr);
+                    error(&loc, "int const (signed long long) larger than LLONG_MAX");
+                }
+            }
+        }
+
+    }
+    return make_token(tok);
 }
 
 Token is_floatconst() {
+    char *s = buf.curr;
+    // default is double
+    char double_flag = 1;
+    // user specifies either of these
+    char float_flag = 0;
+    char longdouble_flag = 0;
+    char err = 0;
 
+
+    // hex/octal float const
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+        while (map[s[0]] & (HEX | DIGIT)) {
+            s++;
+        }
+        if (s[0] == '.') {
+            s++;
+            while (map[s[0]] & (HEX | DIGIT)) {
+                s++;
+            }
+            if (s[0] == 'p' || s[0] == 'P') {
+                s++;
+                if (s[0] == '+' || s[0] == '-') {
+                    s++;
+                }
+                if (map[s[0]] & DIGIT) {
+                    while (map[s[0]] & DIGIT) {
+                        s++;
+                    }
+                } else {
+                    // error - required digit
+                    err = 1;
+                    error(&loc, "hex/octal float const expected digit after p/P");
+                }
+            }
+        } else if (s[0] == 'p' || s[0] == 'P') {
+            s++;
+            if (s[0] == '+' || s[0] == '-') {
+                s++;
+            }
+            if (map[s[0]] & DIGIT) {
+                while (map[s[0]] & DIGIT) {
+                     s++;
+                }
+            } else {
+                 // error - required digit
+                err = 1;
+                error(&loc, "hex/octal float const expected digit after p/P");
+             }
+
+        } else {
+            // possibly an int
+            return NULL;
+        }
+        /*
+        while (map[s[0]]&DIGIT) {
+            s++;
+        }
+        */
+    } else if (map[s[0]] & DIGIT || s[0] == '.') {
+        while (map[s[0]] & DIGIT) {
+            s++;
+        }
+        if (s[0] == '.') {
+            s++;
+            while (map[s[0]] & DIGIT) {
+                s++;
+            }
+            if (s[0] == 'e' || s[0] == 'E') {
+                s++;
+                if (s[0] == '+' || s[0] == '-') {
+                    s++;
+                }
+                if (map[s[0]] & DIGIT) {
+                    while (map[s[0]] & DIGIT) {
+                        s++;
+                    }
+                } else {
+                    // error - required digit
+                    err = 1;
+                    error(&loc, "hex/octal float const expected digit after e/E");
+                }
+            }
+        } else if (s[0] == 'e' || s[0] == 'E') {
+            s++;
+            if (s[0] == '+' || s[0] == '-') {
+                s++;
+            }
+            if (map[s[0]] & DIGIT) {
+                while (map[s[0]] & DIGIT) {
+                     s++;
+                }
+            } else {
+                 // error - required digit
+                err = 1;
+                error(&loc, "hex/octal float const expected digit after e/E");
+             }
+
+        } else {
+            // possibly an int
+            return NULL;
+        }
+        /*
+        while (map[s[0]]&DIGIT) {
+            s++;
+        }
+        */
+    // hex float constant
+    }
+    // optional floating suffix
+    if (s[0] == 'f' || s[0] == 'F') {
+        double_flag = 0;
+        float_flag = 1;
+        s++;
+    } else if (s[0] == 'l' || s[0] == 'L') {
+        double_flag = 0;
+        longdouble_flag = 1;
+        s++;
+    }
+    if (err) {
+        token tok = {.type=ERROR, .subtype=SFLOAT, .len=(s-buf.curr), .loc=loc};
+        token.val.strval = make_string(buf.curr, (s - buf.curr));
+        return make_token(tok);
+    }
+    // use stdlib for the heavy lifting cause who wants to deal with floats
+    token tok = {.loc=loc};
+    if (double_flag) {
+        tok.type = SDOUBLE;
+        tok.val.floatval.d = strtod(buf.curr, &s);
+        // check overflow
+        if (errno == ERANGE) {
+            err = 1;
+            error(&loc, "float const (double) exceeds max limit");
+        }
+    } else if (longdouble_flag) {
+        tok.type = LDOUBLE;
+        tok.val.floatval.ld = strtold(buf.curr, &s);
+        s++;
+        // check overflow
+        if (errno == ERANGE) {
+            // error
+            err = 1;
+            error(&loc, "float const (long double) exceeds max limit");
+        }
+    } else if (float_flag) {
+        tok.type = SFLOAT;
+        tok.val.floatval.f = strtof(buf.curr, &s);
+        s++;
+        // check overflow
+        if (errno == ERANGE) {
+            // error
+            err = 1;
+            error(&loc, "float const (signed float) exceeds max limit");
+        }
+    }
+    if (err) {
+        // subtype not accurate, but that's okay
+        token tok = {.type=ERROR, .subtype=SFLOAT, .len=(s-buf.curr), .loc=loc};
+        tok.val.strval = make_string(buf.curr, (s - buf.curr));
+        return make_token(tok);
+    }
+    tok.len = s - buf.curr;
+    return make_token(tok);
 }
 
-Token is_enumconst() {
-
-}
 
 Token is_charconst() {
+    if (*buf.curr != '\'') {
+        return NULL;
+    }
+    ensure_buflen(MINBUFLEN);
+    char *s = buf.curr + 1;
+    int val = 0;
+    char err = 0;
+    // parse char contents
+    if (*s == '\\') {
+        int esc_len = is_escapeseq(&val, s);
+        if (!esc_len) {
+            // error - escape sequence requires atleast one character
+            err = 1;
+            error(&loc, "escape sequence requires atleast one valid escape character after \\");
+            val = 0;
+            esc_len = 1;
+        }
+        s += esc_len;
+    } else {
+        val = *s;
+    }
+    if (*s++ != '\'') {
+        err = 1;
+        error(&loc, "In it's current implementation, pluto only supports single character constants");
 
+        // for error recovery skip characters till the closing single quote
+        while (*s != '\'') {
+            s++;
+            esc_len++;
+            ensure_buflen(MINBUFLEN);
+            if (s == (buf.bufend - 1)) {
+                err = 1;
+                error(&loc, "unterminated character constant");
+            }
+        }
+    }
+    if (err) {
+        token tok = {.type=ERROR, .subtype=UCHAR, .len=(s-buf.curr), .loc=loc};
+        tok.val.strval = make_string(buf.curr, (s - buf.curr));
+        return make_token(tok);
+    }
+    token tok = {.type=UCHAR, .len=(s-buf.curr), .loc=loc};
+    tok.val.charval.c = val;
+    return make_token(tok);
 }
 
 int is_escapeseq(int *val, char *s) {
@@ -217,6 +583,11 @@ int is_escapeseq(int *val, char *s) {
                 s += 2;
                 if (!(map[s[0]] & (HEX | DIGIT))) {
                     // error - need a hex digit after \x
+                    // for error recovery, set the value to 0
+                    *val = 0;
+                    error(&loc, "a hexadecimal escape sequence requires atleast one hex digit (0-F)");
+                    return (s - olds);
+
                 }
                 while (map[s[0]] & (HEX | DIGIT)) {
                     (*val) <<= 4;
@@ -232,6 +603,9 @@ int is_escapeseq(int *val, char *s) {
                 // hex
                 if (*val > 0xFF) {
                     // error val can't be more than 255
+                    // for error recovery, set the value to 255
+                    *val = 0xFF; 
+                    error(&loc, "A hexadecimal escape sequence cannot have a value greater than 0xFF");
                 }
                 return (s - olds);
             // octal
