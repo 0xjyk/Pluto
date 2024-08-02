@@ -196,26 +196,27 @@ void bufinit(char *pp_file);
 void ensure_buflen(int len);
 
 // lex.c 
-int lex();
+Token lex();
 void lexdriver(char *pp_file);
-int is_keyword(); 
-int is_identifier();
-int is_punct();
-int is_constant();
-int is_intconst();
-int is_floatconst(); 
-int is_enumconst() ;
-int is_charconst();
-int is_string();
+/* private functions - not exported; to be deleted
+Token is_keyword(); 
+Token is_identifier();
+Token is_punct();
+Token is_constant();
+Token is_intconst();
+Token is_floatconst(); 
+Token is_enumconst() ;
+Token is_charconst();
+Token is_string();
 int is_escapeseq(int *val, char *s);
-int make_error();
+*/
 
 // parse.c 
 void parse(char *pp_file);
 void print_cpp();
 
 // error.c 
-void warning(const char *msg);
-void error(const char *msg);
+void warning(Location l, const char *msg);
+void error(Location l, const char *msg);
 
 #endif

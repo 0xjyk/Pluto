@@ -12,9 +12,9 @@ float
 for goto if 
     inline
 int long long long 
-register 
+register restrict
 return register long do double auto
-int long short sizeof struct switch
+int long short signed sizeof struct switch
 typedef typedef union unsigned 
 void volatile while _Alignas _Alignof
 _Atomic _Atomic 
