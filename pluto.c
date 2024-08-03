@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         } else {
             printf("requrested l, p, t, c\n"); 
         }
-        exit(EXIT_SUCCESS);
-}
+    }
+    exit(EXIT_SUCCESS);
 }
 
