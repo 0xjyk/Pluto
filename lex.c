@@ -40,6 +40,12 @@ Token lex() {
     if ((buf.bufend - buf.curr) <= MINBUFLEN && !pp_read_complete) {
         fillbuf();
     }
+
+    if (pp_read_complete && buf.curr == (buf.bufend - 1)) {
+        token tok = {.type=EOI, .len=0, .loc=loc};
+        return make_token(tok);
+    }
+
     
     // extra indirection cause the patterns can be interleaved
     while ((*buf.curr == '#') ||
@@ -263,7 +269,7 @@ Token is_intconst() {
             value <<= 4;
             if (map[s[0]] & DIGIT) {
                 value += (s[0] - 48);
-            } else if (map[s[0]] <= 70) {
+            } else if (s[0] <= 70) {
                 value += (s[0] - 55);
             } else {
                 value += (s[0] - 87);
@@ -1459,12 +1465,58 @@ Token is_punct() {
 }
 
 void process_gnu_directive() {
-    // TODO process GNU pp direcitve
-    while (!(map[*buf.curr] & NEWLINE)) {
-        buf.curr++;
+    ensure_buflen(STRBUFLEN);
+    
+    char *s = buf.curr;
+    // skip directive prefix
+    if (*buf.curr == '#') {
+        buf.curr += 2;
     }
-    buf.curr++;
-    loc.x = 0;
+    // parse line number
+    Token tok = NULL;
+    tok = is_intconst();
+    if ((tok != NULL) && (tok->type == INTCONST)) {
+        buf.curr++;
+        loc.y = tok->val.intval.i;
+        loc.x = 0;
+        // set all gnu flags as off by default
+        loc.nf = 0; loc.rtf = 0; loc.shf = 0; loc.tae = 0;
+    } else {
+        error(&loc, "internal error while processing gnu cpp directive");
+    }
+    // parse file name
+    tok = NULL;
+    tok = is_string();
+    if ((tok != NULL) && (tok->type == STR)) {
+        loc.file = tok->val.strval;
+    } else {
+        error(&loc, "internal error while processing gnu cpp directive");
+    }
+    
+    // next character should be '\n' is not optional gnu flags are present
+    if (*buf.curr++ == '\n') {
+        return;
+    }
+    // parse optional gnu flags 
+    if (*buf.curr == '1') {
+        loc.nf = 1;
+        buf.curr += 2;
+    }
+    if (*buf.curr == '2') {
+        loc.rtf = 1;
+        buf.curr += 2;
+    }
+    if (*buf.curr == '3') {
+        loc.shf = 1;
+        buf.curr += 2;
+    } 
+    if (*buf.curr == '4') {
+        loc.tae = 1;
+        buf.curr += 1;
+    }
+    
+    while (*buf.curr++ != '\n') {
+    }
 }
 
 /*

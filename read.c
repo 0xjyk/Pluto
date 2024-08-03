@@ -28,7 +28,7 @@ void fillbuf() {
     // first check to see if some characters weren't read - place them at the start
     char *tempcurr = buf.buf;
     if (buf.curr < buf.bufend) {
-        while (buf.curr <= buf.bufend) {
+        while (buf.curr < buf.bufend) {
             *tempcurr++ = *buf.curr++;
         }
     }

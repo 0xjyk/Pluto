@@ -1,3 +1,9 @@
+TOKEN(LSQBRACREP, 91, "<:")
+TOKEN(RSQBRACREP, 93, ":>")
+TOKEN(LCBRACREP, 123, "<%")
+TOKEN(RCBRACREP, 125, "%>")
+TOKEN(HASHREP, 35, "%:")
+TOKEN(HHASHREP, 255, "%:%:")
 
 TOKEN(ID, 0, "identifier")
 TOKEN(KEYWORD, 1, "keyword")
@@ -68,12 +74,6 @@ TOKEN(OREQ, 254, "|=")
 TOKEN(HHASH, 255, "##")
 TOKEN(EOI, 256, "end of input")
 
-TOKEN(LSQBRACREP, 91, "<:")
-TOKEN(RSQBRACREP, 93, ":>")
-TOKEN(LCBRACREP, 123, "<%")
-TOKEN(RCBRACREP, 125, "%>")
-TOKEN(HASHREP, 35, "%:")
-TOKEN(HHASHREP, 255, "%:%:")
 
 KEY(AUTO, 127, "auto")
 KEY(BREAK, 128, "break")

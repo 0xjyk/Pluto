@@ -61,6 +61,11 @@ union align {
 typedef struct location {
     char *file;
     int x,y; 
+    // gnu flags - see gnu docs for interpretation
+    char nf:1;
+    char rtf:1;
+    char shf:1;
+    char tae:1;
 } location; 
 typedef location *Location;
 
