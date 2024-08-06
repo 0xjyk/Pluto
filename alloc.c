@@ -105,3 +105,7 @@ char *strloc(char *str, int sz, int an) {
     return s;
 }
 
+void *new(void *ptr, int an) {
+    assert(ptr != NULL && an >= 0 && an < ARENA_MAX); 
+}
+

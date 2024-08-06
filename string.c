@@ -1,7 +1,7 @@
 #include "pluto.h"
 
 #define NUM_BUCKETS 1024
-
+#define INT_MAX_LEN (10 + 1 + 1)
 static struct string {
     char *str; 
     int len; 
@@ -10,19 +10,19 @@ static struct string {
 
 
 // djb2, a simple hash function by dan bernstein
-int hash(unsigned char *str) {
+int hash(unsigned char *str, int num_buckets) {
     unsigned long hash = 5381;
     int c;
     while (c = *str++)
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
     // ensure hash is between 0-NUM_BUCKETS
-    hash &= (NUM_BUCKETS - 1);
+    hash &= (num_buckets - 1);
     return hash;
 };
 
 char *make_string(char *str, int len) {
     // hash str to get the appropriate bucket
-    struct string **strlist = &buckets[hash(str)];
+    struct string **strlist = &buckets[hash(str, NUM_BUCKETS)];
     struct string *s = *strlist;
 
     // if string already in string pool, return existing string
@@ -49,6 +49,26 @@ char *make_string(char *str, int len) {
     ss->next = *strlist; 
     *strlist = ss;
     return ss->str;
+}
+
+char *dtos (int n) {
+    char buf[INT_MAX_LEN]; 
+    char *s = &buf[INT_MAX_LEN - 1];
+    *s = '\0';
+    char is_neg = 0;
+    if (n < 0) {
+        is_neg = 1;
+        n = -n;
+    }
+    do {
+        int m = n % 10;
+        *--s = '0' + m;
+        n /= 10;
+    } while (n != 0);
+    if (is_neg) 
+        *--s = '-';
+    
+    return make_string(s, INT_MAX_LEN - (s - buf));
 }
 
 // print only the buckets that contain strings

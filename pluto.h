@@ -30,8 +30,20 @@
 #define STRBUFLEN (MAXSTRLEN + 3)
 #define BUFSIZE MAXLINE + BUFLEN + 1
 
+#define MIN_LEVEL CONSTANTS
+#define TAB_HASH_SIZE 256
 
+/*
+    forward declarations
+*/
 
+struct vector;
+struct block;
+struct location;
+struct buffer;
+struct token;
+struct type;
+union align;
 /*
  *  type declarations
  */
@@ -78,33 +90,6 @@ typedef struct buffer {
 } buffer;
 typedef buffer *Buffer;
 
-/*
-typedef struct token {
-    int type; 
-    char *val; 
-    union intval {
-        unsigned long long int ull; 
-        long long int ll; 
-        unsigned long int ul; 
-        long int l; 
-        unsigned int u;
-        int i;
-    } intval;
-    union floatval {
-        long double ld; 
-        double d; 
-        float f; 
-    } floatval;
-    union charval { 
-        int c; 
-        char16_t c16; 
-        char32_t c32; 
-        wchar_t wc;
-    } charval;
-    char *strval;
-    location loc;
-} token;
-*/
 
 typedef struct token {
     int type; 
@@ -133,9 +118,7 @@ typedef struct token {
     int len;
     location loc;
 } token;
-
 typedef token *Token;
-
 
 enum {PERM=0, FUNC, STMT};
 enum {
@@ -145,6 +128,65 @@ enum {
 #undef TOKEN
 #undef KEY
 };
+
+typedef union constantval {
+    unsigned char uc; 
+    signed char c;
+    short sh;
+    unsigned short ush;
+    int i;
+    unsigned int ui;
+    long int l;
+    unsigned long int ul;
+    long long int ll;
+    unsigned long long int ull;
+    float f; 
+    double d;
+    long double ld;
+    void *p;
+} constantval;
+
+
+
+typedef struct type *Type;
+typedef struct type {
+
+} type;
+
+enum {CONSTANTS=1, LABELS, GLOBAL, PARAM, LOCAL};
+struct symbol;
+typedef struct symbol *Symbol;
+typedef struct symbol {
+    char *name;
+    int scope;
+    location loc;
+    Symbol prev;
+    Type type;
+    int sclass;
+    // value ?? TODO - update gradually 
+    union {
+        struct {
+            constantval v; 
+            Symbol s;
+        }c;
+    } u;
+} symbol;
+
+struct table;
+typedef struct table *Table;
+typedef struct table {
+    unsigned int level;
+    // enclosing scope
+    Table prev;
+    // hash table of symbols in the current scope
+    struct entry {
+        symbol sym;
+        struct entry *next;
+    } *buckets[TAB_HASH_SIZE];
+    // chain of symbols int level and enclosing scopes
+    Symbol all;
+} table;
+
 
 /*
  *  global variables
@@ -191,8 +233,9 @@ void dealloc(int an);
 char *strloc(char *str, int sz, int an);
 
 // string.c 
-int hash(unsigned char *str); 
+int hash(unsigned char *str, int num_buckets); 
 char *make_string(char *str, int len);
+char *dtos(int n);
 void dump_stringpool();
 
 // read.c 
@@ -203,18 +246,6 @@ void ensure_buflen(int len);
 // lex.c 
 Token lex();
 void lexdriver(char *pp_file);
-/* private functions - not exported; to be deleted
-Token is_keyword(); 
-Token is_identifier();
-Token is_punct();
-Token is_constant();
-Token is_intconst();
-Token is_floatconst(); 
-Token is_enumconst() ;
-Token is_charconst();
-Token is_string();
-int is_escapeseq(int *val, char *s);
-*/
 
 // parse.c 
 void parse(char *pp_file);
@@ -223,5 +254,15 @@ void print_cpp();
 // error.c 
 void warning(Location l, const char *msg);
 void error(Location l, const char *msg);
+
+// sym.c
+extern Table constants;
+extern Table external;
+extern Table globals;
+extern Table identifiers;
+extern Table lables;
+// TODO: types
+extern Table types;
+extern unsigned int level;
 
 #endif
