@@ -37,11 +37,13 @@ int main(int argc, char *argv[]) {
             // call lexdriver to perform only lexing 
             lexdriver((char *)vec_get(ppfiles, i));  
         } else if (JOBSCOPE == PARSE) {
+            printf("requested l, p\n");
             parse((char *)vec_get(ppfiles, i));
         } else if (JOBSCOPE == TYPECHECK) {
             printf("requested l, p, t\n");
+            parse((char *)vec_get(ppfiles, i));
         } else {
-            printf("requrested l, p, t, c\n"); 
+            printf("requested l, p, t, c\n"); 
         }
     }
     exit(EXIT_SUCCESS);

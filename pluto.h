@@ -43,7 +43,11 @@ struct location;
 struct buffer;
 struct token;
 struct type;
+struct symbol;
 union align;
+struct node;
+
+typedef struct symbol *Symbol;
 /*
  *  type declarations
  */
@@ -94,8 +98,8 @@ typedef buffer *Buffer;
 typedef struct token {
     int type; 
     int subtype;
-    union val {
-        union intval {
+    union {
+        union {
             unsigned long long int ull; 
             long long int ll; 
             unsigned long int ul; 
@@ -103,12 +107,12 @@ typedef struct token {
             unsigned int u;
             int i;
         } intval;
-        union floatval {
+        union {
             long double ld; 
             double d; 
             float f;
         } floatval;
-        union charval {
+        union {
             int c; 
             // char 16,32 & wc not supported
         } charval; 
@@ -119,6 +123,11 @@ typedef struct token {
     location loc;
 } token;
 typedef token *Token;
+
+typedef struct token_store {
+    Token tok; 
+    struct token_store *nxt;
+} token_store;
 
 enum {PERM=0, FUNC, STMT};
 enum {
@@ -150,12 +159,19 @@ typedef union constantval {
 
 typedef struct type *Type;
 typedef struct type {
+    int id;
+    Type t;
+    int align;
+    int size;
+    union {
+        // sym is used for structs, enum, arrays
+        Symbol sym;
+        // function type
+    } u;
 
 } type;
 
 enum {CONSTANTS=1, LABELS, GLOBAL, PARAM, LOCAL};
-struct symbol;
-typedef struct symbol *Symbol;
 typedef struct symbol {
     char *name;
     int scope;
@@ -187,6 +203,46 @@ typedef struct table {
     Symbol all;
 } table;
 
+enum {
+#define NODE(a,b,c) a=b,
+#include "include/node.h"
+#undef NODE
+};
+
+
+typedef struct node *Node;
+typedef struct node {
+    int id;
+    int subid;
+    int subsubid;
+    Type typ;
+    int num_kids;
+    Node nxt;
+    char err:1;
+    Node kids;
+    union {
+        union {
+            unsigned long long int ull; 
+            long long int ll; 
+            unsigned long int ul; 
+            long int l; 
+            unsigned int u;
+            int i;
+        } intval;
+        union {
+            long double ld; 
+            double d; 
+            float f;
+        } floatval;
+        union {
+            int c; 
+            // char 16,32 & wc not supported
+        } charval; 
+        char *strval;
+    } val;
+
+} node;
+
 
 /*
  *  global variables
@@ -207,6 +263,18 @@ extern token t;
 extern int pp_read_complete;
 extern int num_warnings;
 extern int num_errors;
+extern Table constants;
+extern Table external;
+extern Table globals;
+extern Table identifiers;
+extern Table lables;
+// TODO: types
+extern Table types;
+extern unsigned int level;
+
+extern Node root;
+extern token_store *ts;
+
 
 /*
  *  forward declartions
@@ -248,21 +316,11 @@ Token lex();
 void lexdriver(char *pp_file);
 
 // parse.c 
-void parse(char *pp_file);
-void print_cpp();
+Node parse(char *pp_file);
 
 // error.c 
 void warning(Location l, const char *msg);
 void error(Location l, const char *msg);
 
 // sym.c
-extern Table constants;
-extern Table external;
-extern Table globals;
-extern Table identifiers;
-extern Table lables;
-// TODO: types
-extern Table types;
-extern unsigned int level;
-
 #endif

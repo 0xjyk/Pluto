@@ -36,6 +36,15 @@ void process_gnu_directive();
 
 */
 Token lex() {
+    
+    // at times the parser chooses to return the lookahead token
+    // in those times it save the token at restore and expects
+    // lex to return it back in the next call
+    if (ts) {
+        Token tok = ts->tok;
+        ts = ts->nxt;
+        return tok;
+    }
     // refill the buffer when the number of characters are too few 
     if ((buf.bufend - buf.curr) <= MINBUFLEN && !pp_read_complete) {
         fillbuf();
