@@ -38,7 +38,8 @@ int main(int argc, char *argv[]) {
             lexdriver((char *)vec_get(ppfiles, i));  
         } else if (JOBSCOPE == PARSE) {
             printf("requested l, p\n");
-            parse((char *)vec_get(ppfiles, i));
+            Node root = parse((char *)vec_get(ppfiles, i));
+            dump_AST(root, 0);
         } else if (JOBSCOPE == TYPECHECK) {
             printf("requested l, p, t\n");
             parse((char *)vec_get(ppfiles, i));

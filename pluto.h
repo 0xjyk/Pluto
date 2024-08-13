@@ -216,6 +216,7 @@ typedef struct node {
     int subid;
     int subsubid;
     Type typ;
+    location loc;
     int num_kids;
     Node nxt;
     char err:1;
@@ -317,6 +318,7 @@ void lexdriver(char *pp_file);
 
 // parse.c 
 Node parse(char *pp_file);
+void dump_AST(Node n, int indet);
 
 // error.c 
 void warning(Location l, const char *msg);

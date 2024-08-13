@@ -1,1 +1,38 @@
-_Static_assert ( , "stringg");
+_Static_assert (55, "stringg");
+_Static_assert (x, "stringg");
+_Static_assert (x ? y : z, "stringg");
+_Static_assert (1 || 'b', "stringg");
+_Static_assert (5 && z, "stringg");
+_Static_assert (10 | 1, "stringg");
+_Static_assert (15 & '\0', "stringg");
+_Static_assert (0x44 ^ 0x43, "stringg");
+_Static_assert (15 == 15, "stringg");
+_Static_assert (15 != 14, "stringg");
+_Static_assert (5 < 'c', "stringg");
+_Static_assert (5 <= 6, "stringg");
+_Static_assert (y >= x, "stringg");
+_Static_assert (33 << 2, "stringg");
+_Static_assert (55 >> 1, "stringg");
+_Static_assert (4 + 4, "stringg");
+_Static_assert (30 - 'c', "stringg");
+_Static_assert (49 * 69, "stringg");
+_Static_assert (49 / 7, "stringg");
+_Static_assert (9 % 2, "stringg");
+_Static_assert (true && true || false, "true");
+_Static_assert (true || true && false, "true");
+/*
+_Static_assert (!n, "stringg");
+_Static_assert (*ptr, "stringg");
+_Static_assert (+20, "stringg");
+_Static_assert (-r, "stringg");
+_Static_assert (~bnot, "stringg");
+_Static_assert (!not, "stringg");
+_Static_assert (++i, "stringg");
+_Static_assert (--i, "stringg");
+_Static_assert (i++, "stringg");
+_Static_assert (i--, "stringg");
+_Static_assert (ptr->mem, "stringg");
+_Static_assert (node.type, "stringg");
+_Static_assert (arr[5] "stringg");
+*/
+

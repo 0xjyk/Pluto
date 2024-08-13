@@ -69,7 +69,7 @@ Token lex() {
         // skip newlines and update file coordinates
         } else if (map[*buf.curr] & NEWLINE) {
             buf.curr++; 
-            loc.x = 0;
+            loc.x = 1;
             loc.y++; 
         }
     }
@@ -1487,7 +1487,7 @@ void process_gnu_directive() {
     if ((tok != NULL) && (tok->type == INTCONST)) {
         buf.curr++;
         loc.y = tok->val.intval.i;
-        loc.x = 0;
+        loc.x = 1;
         // set all gnu flags as off by default
         loc.nf = 0; loc.rtf = 0; loc.shf = 0; loc.tae = 0;
     } else {
@@ -1503,29 +1503,36 @@ void process_gnu_directive() {
     }
     
     // next character should be '\n' is not optional gnu flags are present
-    if (*buf.curr++ == '\n') {
-        return;
+    while (1) {
+        if (*buf.curr == '\n') {
+            loc.x = 1;
+            buf.curr++;
+            return; 
+        }
+        switch (buf.curr[1]) {
+            case '1':
+                loc.nf = 1;
+                buf.curr += 2;
+                break;
+            case '2':
+                loc.rtf = 1; 
+                buf.curr += 2;
+                break;
+            case '3':
+                loc.shf = 1; 
+                buf.curr += 2;
+                break;
+            case '4':
+                loc.tae = 1; 
+                buf.curr += 2;
+                break;
+            default: 
+                error(&loc, "internal error while processing gnu cpp directive");
+        }
     }
-    // parse optional gnu flags 
-    if (*buf.curr == '1') {
-        loc.nf = 1;
-        buf.curr += 2;
-    }
-    if (*buf.curr == '2') {
-        loc.rtf = 1;
-        buf.curr += 2;
-    }
-    if (*buf.curr == '3') {
-        loc.shf = 1;
-        buf.curr += 2;
-    } 
-    if (*buf.curr == '4') {
-        loc.tae = 1;
-        buf.curr += 1;
-    }
-    
-    while (*buf.curr++ != '\n') {
-    }
+                    
+
+
 }
 
 /*
