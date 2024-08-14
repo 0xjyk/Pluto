@@ -72,6 +72,9 @@ Node primary_expression(){
                     nd->val.intval.i = tok->val.intval.i; break;
                 default:
                     // internal error shouldn't reach this branch
+                    error(&(tok->loc), "internal error while processing int primary expression"); 
+                    // for error recovery, set err to 1 & store a dummy int val
+                    nd->err = 1; nd->subsubid = SINT; nd->val.intval.i = 1;
                     break;
             }
             return nd;
@@ -89,6 +92,8 @@ Node primary_expression(){
                     nd->val.floatval.f = tok->val.floatval.f; break; 
                 default: 
                     // internal error shoudn't reach this branch
+                    error(&(tok->loc), "internal error while processing float primary expression"); 
+                    nd->err = 1; nd->subsubid = SFLOAT; nd->val.floatval.f = 1;
                     break;
             }
             return nd;
@@ -98,99 +103,100 @@ Node primary_expression(){
             nd->loc = tok->loc;
             return nd;
         case PUNCT: 
-            if (tok->subtype != '(') {
-                // error
-                // escape till ')'
+            if (tok->subtype != LBRAC) {
+                error(&(tok->loc), "expected '(' before sub-expresion");
+                // escape till FIRST(expr)
+                escape_first(ND_EXPR);
             }
             nd = expression(); 
-            if (!(tok = lex()) || (tok->subtype != ')')) {
-                // error required ')'
-
+            if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
+                error(&(tok->loc), "expected ')' after sub-expression");
+                while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
             }
             return nd;
         case KEYWORD:
-
             if (tok->subtype != _GENERIC) {
                 // error - only permissible keyword here is _Generic 
-                
-                // error recovery skip content till closing ')'
+                error(&(tok->loc), "expected _Generic keywords before generic expression");
+                // insert generic token 
+                token t = {.type = KEYWORD, .subtype=_GENERIC, .len=0, .loc=tok->loc};
+                tok = make_token(t); 
             }
-            break; 
-    }
-
-}
-Node expression(){
-    // assignment_expression 
-    // expression , assignment_expression
-    Node assign_expr = assignment_expression(); 
-    Token tok = lex(); 
-    if (tok->type != PUNCT || tok->subtype != COM) {
-        restore_tok(&tok); 
-        return assign_expr;
-    }
-    restore_tok(&tok);
-    Node expr = make_node(ND_EXPR, PERM);
-    add_child(expr, &assign_expr);
-    expr->loc = assign_expr->loc;
-    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
-        assign_expr = assignment_expression(); 
-        add_child(expr, &assign_expr);
-    }
-    restore_tok(&tok);
-    return expr;
-
-    /*
-    while (1) {
-        Node ch = assignment_expression(); 
-        add_child(nd, &ch);
-        if ((tok = lex())->type != PUNCT || tok->subtype != ',') {
             restore_tok(&tok);
-            break; 
-        }
+            return generic_selection();
+
+            /*
+            if ((tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
+                error(&(tok->loc), "expected '(' before generic expression");
+            }
+            nd = make_node(ND_GENERIC, PERM); 
+            {Node assign_expr = assignment_expression(); 
+             add_child(nd, &assign_expr);}
+            if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
+                error(&(tok->loc), "expected ',' between the asssignment expression and \
+                        generic association list");
+            }
+            {Node gen_list = generic_assoc_list(); 
+             add_child(nd, &gen_list);}
+            if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
+                error(&(tok->loc), "expected ')' after generic expression");
+                while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
+            }
+            return nd;
+            */
+        case ERROR: 
+            restore_tok(&tok);
+            nd = make_error_recovery_node();
+            return nd;
     }
-    return nd;
-    */
 }
+
+
 Node generic_selection(){
     // _Generic ( assignment_expression , generic_assoc_list )
     Token tok = lex(); 
     if (tok->type != KEYWORD || tok->subtype != _GENERIC) {
-        // error expected _Generic
+        error(&(tok->loc), "expected _Generic keywords before generic expression");
     }
-    if ((tok = lex())->type != PUNCT || tok->subtype != '(') {
-        // error expected '('
+    if ((tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
+        error(&(tok->loc), "expected '(' before generic expression");
+        escape_first(ND_ASSIGNEXPR);
     }
     Node gen = make_node(ND_GENERIC, PERM);
-    Node assignexp = assignment_expression(); 
-    add_child(gen, &assignexp); 
-    if ((tok = lex())->type != PUNCT || tok->subtype != ',') {
-        // error expected ','
+    Node assign_expr = assignment_expression(); 
+    add_child(gen, &assign_expr); 
+    if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
+        error(&(tok->loc), "expected ',' between the asssignment expression and \
+                generic association list");
+        // TODO: add escape_first(gen_assoc_list);
     }
     Node gal = generic_assoc_list(); 
     add_child(gen, &gal);
-    if ((tok = lex())->type != PUNCT || tok->subtype != ')') {
-        // error expecteed ')'
-
+    if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
+        error(&(tok->loc), "expected ')' after generic expression");
+        while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
     }
     return gen;
-
 }
 Node generic_assoc_list(){
     // generic_association 
     // generic_assoc_list , generic_association
-    Node nd = make_node(ND_GENLS, PERM);
-    Token tok;
-    while (1) {
-        Node ch = generic_association(); 
-        add_child(nd, &ch);
-        if ((tok = lex())->type != PUNCT || tok->subtype != ',') {
-            restore_tok(&tok);
-            break; 
-        }
+    Node gen_assoc = generic_association(); 
+    Token tok = lex(); 
+    if (tok->type != PUNCT || tok->subtype != COM) {
+        restore_tok(&tok); 
+        return gen_assoc; 
     }
-    return nd;
-
-
+    restore_tok(&tok); 
+    Node gen_ls = make_node(ND_GENLS, PERM);
+    add_child(gen_ls, &gen_assoc);
+    gen_ls->loc = gen_assoc->loc;
+    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
+        gen_assoc = generic_association(); 
+        add_child(gen_ls, &gen_assoc);
+    }
+    restore_tok(&tok); 
+    return gen_ls;
 }
 Node generic_association(){
     // type_name : assignment_expression
@@ -214,8 +220,8 @@ Node postfix_expression(){
     Token tok = lex(); 
     Node pf_root;
     
-    // do (type_name work here : TODO also need to ensure that type-name is followed
-    if (tok->type == PUNCT && tok->subtype == '(') {
+    // do (type_name) work here : TODO also need to ensure that type-name is followed
+    if (tok->type == PUNCT && tok->subtype == LBRAC) {
         
         pf_root = make_node(ND_INIT, PERM);
     return pf_root;
@@ -232,77 +238,83 @@ Node postfix_expression(){
             break;
         }
         switch (tok->subtype) {
-            case '[': 
+            case LSQBRAC: 
                 {
                 Node sel = make_node(ND_SELECT, PERM);
+                sel->loc = tok->loc;
                 add_child(sel, &pf_root);
                 Node expr = expression(); 
                 add_child(sel, &expr);
                 pf_root = sel;
-                if ((tok = lex())->type != PUNCT || tok->subtype != ']') {
-                    // error - expected closing ']'
-
+                if ((tok = lex())->type != PUNCT || tok->subtype != RSQBRAC) {
+                    error(&(tok->loc), "expected closing ']' after expression in seclection expression");
+                    while ((tok = lex())->type != PUNCT || tok->subtype != RSQBRAC) {};
                 }
-                break; 
+                return sel;
                 }
-            case '(':
+            case LBRAC:
                 {
                 Node call = make_node(ND_CALL, PERM);
+                call->loc = tok->loc;
                 add_child(call, &pf_root); 
                
-                if ((tok = lex())->type == PUNCT && tok->subtype == ')') 
-                    break;
+                if ((tok = lex())->type == PUNCT && tok->subtype == RBRAC) 
+                    return call;
 
                 Node arg_expr_list = argument_expression_list(); 
                 add_child(call, &arg_expr_list);
                 pf_root = call;
-                if ((tok = lex())->type != PUNCT || tok->subtype != ')') {
-                    // error - expected closing ')'
-
+                if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
+                    error(&(tok->loc), "expected closing ')' after expression in function call expression");
+                    while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
                 }
-                break; 
+                return call;
                 }
             case '.':
                 {
                 Node dot = make_node(ND_DOT, PERM);
+                dot->loc = tok->loc;
                 add_child(dot, &pf_root); 
                 Node id = make_node(ND_ID, PERM);
                 tok = lex();
                 if (tok != ID) {
-                    // error - expected id
+                    error(&(tok->loc), "expected identifier after '.' operator");
                 }
                 id->val.strval = tok->val.strval;
                 add_child(dot, &id); 
                 pf_root = id;
-                break; 
+                return dot;
                 }
             case ARROW:
                 {
                 Node arr = make_node(ND_ARROW, PERM);
+                arr->loc = tok->loc;
                 add_child(arr, &pf_root); 
                 Node idd = make_node(ND_ID, PERM); 
                 tok = lex();
                 if (tok != ID) {
-                    // erro - expected id
+                    error(&(tok->loc), "expected identifier after '.' operator");
                 }
                 idd->val.strval = tok->val.strval; 
                 add_child(arr, &idd);
                 pf_root = idd;
-                break; 
+                return arr;
                 }
             case INCR: 
                 {
                 Node incr = make_node(ND_INCR, PERM);
+                incr->loc = tok->loc;
                 add_child(incr, &pf_root); 
                 pf_root = incr; 
-                break; 
+                return incr;
                 }
             case DECR: 
                 {
                 Node decr = make_node(ND_DECR, PERM);
+                decr->loc = tok->loc;
                 add_child(decr, &pf_root); 
                 pf_root = decr; 
-                break; 
+                return decr;
                 }
             default: 
                 restore_tok(&tok); 
@@ -314,19 +326,24 @@ Node postfix_expression(){
 Node argument_expression_list(){
     // assignment_expression 
     // argument_expression_list , assignment_expression
-    Node nd = make_node(ND_ARGEXPR, PERM);
-    Token tok;
-    while (1) {
-        Node ch = assignment_expression(); 
-        add_child(nd, &ch);
-        if ((tok = lex())->type != PUNCT || tok->subtype != ',') {
-            restore_tok(&tok);
-            break; 
-        }
+    Node arg_expr = assignment_expression(); 
+    Token tok = lex(); 
+    if (tok->type != PUNCT || tok->subtype != COM) {
+        restore_tok(&tok); 
+        return arg_expr; 
     }
-    return nd;
-
+    restore_tok(&tok); 
+    Node arg_ls = make_node(ND_ARGEXPR, PERM); 
+    add_child(arg_ls, &arg_expr); 
+    arg_ls->loc = arg_expr->loc;
+    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
+        arg_expr = assignment_expression(); 
+        add_child(arg_ls, &arg_expr); 
+    }
+    restore_tok(&tok);
+    return arg_ls;
 }
+
 Node unary_expression(){
     // postfix-expression 
     // ++ unary_expression
@@ -336,14 +353,16 @@ Node unary_expression(){
     // sizeof ( type_name )
     // _Alignof ( type_name )
     Token tok = lex();
-    Node nd = make_node(0, PERM);
-    Node temp;
+    Node nd;
     switch (tok->type) {
         case ID: case STR: case INTCONST: 
         case FLOATCONST: case UCHAR: 
             restore_tok(&tok);
             return postfix_expression(); 
         case PUNCT: 
+            nd = make_node(0, PERM);
+            nd->loc = tok->loc;
+            Node temp;
             switch (tok->subtype) {
                 case INCR: 
                     nd->id = ND_UINCR;
@@ -688,12 +707,7 @@ Node assignment_expression(){
     Node l = conditional_expression(); 
     if (l->id <= ND_UNARY) {
         Token tok = lex(); 
-        if ((tok->type != PUNCT) || (tok->subtype != ASSIGN ||
-                    tok->subtype != MULTEQ || tok->subtype != DIVEQ ||
-                    tok->subtype != MODEQ || tok->subtype != INCREQ ||
-                    tok->subtype != DECREQ || tok->subtype != LSHFTEQ ||
-                    tok->subtype != RSHFTEQ || tok->subtype != ANDEQ ||
-                    tok->subtype != XOREQ || tok->subtype != OREQ)) {
+        if (tok->type != PUNCT) {
             restore_tok(&tok); 
             return l;
         }
@@ -701,78 +715,95 @@ Node assignment_expression(){
         assign_expr->loc = tok->loc;
         add_child(assign_expr, &l);
         Node r;
-        if (tok->type != PUNCT) {
-            // error expected assignment_operator
-        } else {
-            switch (tok->subtype) {
-                case ASSIGN: 
-                    assign_expr->subid = ND_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case MULTEQ: 
-                    assign_expr->subid = ND_MULT_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
+        switch (tok->subtype) {
+            case ASSIGN: 
+                assign_expr->subid = ND_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case MULTEQ: 
+                assign_expr->subid = ND_MULT_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
 
-                case DIVEQ:
-                    assign_expr->subid = ND_DIV_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case MODEQ: 
-                    assign_expr->subid = ND_MOD_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case INCREQ: 
-                    assign_expr->subid = ND_INCR_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case DECREQ: 
-                    assign_expr->subid = ND_DECR_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case LSHFTEQ: 
-                    assign_expr->subid = ND_LSHFT_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case RSHFTEQ:
-                    assign_expr->subid = ND_RSHFT_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case ANDEQ: 
-                    assign_expr->subid = ND_AND_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case XOREQ: 
-                    assign_expr->subid = ND_XOR_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-                case OREQ:
-                    assign_expr->subid = ND_OR_ASSIGN;
-                    r = assignment_expression(); 
-                    add_child(assign_expr, &r);
-                    return assign_expr;
-
-                // error has to be one of the above
-
-            }
-            r = assignment_expression(); 
-            add_child(assign_expr, &r);
-            return assign_expr;
-
+            case DIVEQ:
+                assign_expr->subid = ND_DIV_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case MODEQ: 
+                assign_expr->subid = ND_MOD_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case INCREQ: 
+                assign_expr->subid = ND_INCR_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case DECREQ: 
+                assign_expr->subid = ND_DECR_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case LSHFTEQ: 
+                assign_expr->subid = ND_LSHFT_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case RSHFTEQ:
+                assign_expr->subid = ND_RSHFT_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case ANDEQ: 
+                assign_expr->subid = ND_AND_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case XOREQ: 
+                assign_expr->subid = ND_XOR_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            case OREQ:
+                assign_expr->subid = ND_OR_ASSIGN;
+                r = assignment_expression(); 
+                add_child(assign_expr, &r);
+                return assign_expr;
+            default: 
+                restore_tok(&tok); 
+                return l;
         }
+        r = assignment_expression(); 
+        add_child(assign_expr, &r);
+        return assign_expr;
     }
     return l;
 }
+
+Node expression(){
+    // assignment_expression 
+    // expression , assignment_expression
+    Node assign_expr = assignment_expression(); 
+    Token tok = lex(); 
+    if (tok->type != PUNCT || tok->subtype != COM) {
+        restore_tok(&tok); 
+        return assign_expr;
+    }
+    restore_tok(&tok);
+    Node expr = make_node(ND_EXPR, PERM);
+    add_child(expr, &assign_expr);
+    expr->loc = assign_expr->loc;
+    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
+        assign_expr = assignment_expression(); 
+        add_child(expr, &assign_expr);
+    }
+    restore_tok(&tok);
+    return expr;
+}
+
 Node constant_expression(){
     return conditional_expression();
 } 
@@ -783,32 +814,28 @@ Node declaration_specifiers(){}
 Node init_declarator_list(){} 
 Node static_assert_declaration(){
     // _Static_assert ( constant_expression , string-literal ) ;
-
-    Node sad = make_node(ND_SAD, PERM);
     Token tok;
-    
     if ((tok = lex())->type != KEYWORD || tok->subtype != _STATIC_ASSERT) {
-        // error - expected _static_assert
-
-        // error recovery, return appropriate node with err bit 
+        error(&(tok->loc), "expected _Static_assert keyword before static assert declaration");
     } 
+    Node sad = make_node(ND_SAD, PERM);
     sad->loc = tok->loc;
-
     if ((tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
-        // error - expected '('
+        error(&(tok->loc), "expected opening '(' in static assert declaration");
     }
-    
     // constant expression
     Node const_ex = constant_expression();
     add_child(sad, &const_ex);
-    
     if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
-        // error - expected ','
+        error(&(tok->loc), "expected ',' between constant expression and string literal in \
+                the static assert declaration");
     }
     
     // string literal 
     if ((tok = lex())->type != STR) {
         // error - expected a string constant
+        error(&(tok->loc), "expected string literal as the second argument of the static \
+                assert declaration");
     }
     Node str = make_node(ND_STR, PERM);
     str->val.strval = tok->val.strval;
@@ -817,11 +844,10 @@ Node static_assert_declaration(){
 
     // ')'
     if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
-        // error - expected ')'
+        error(&(tok->loc), "expected closing ')' in static assert declaration");
     }
     if ((tok = lex())->type != PUNCT || tok->subtype != SCOL) {
-        // error - expected ';'
-
+        error((&tok->loc), "missing terminating ';' in static assert declaration");
     }
     return sad;
 }
@@ -1021,17 +1047,18 @@ void print_node(Node n, int indent) {
             printf("-%s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     node_map[n->subid - 256], n->loc.y, n->loc.x);
             break;
-        case ND_COND: 
-            printf("-%s <line:%d, col:%d>\n", node_map[n->id - 256], \
-                    n->loc.y, n->loc.x);
-            break;
         case ND_OR: case ND_AND: case ND_IOR: case ND_XOR: 
         case ND_BAND: case ND_NEQ: case ND_EQ: case ND_GEQ:
         case ND_LEQ: case ND_GREATER: case ND_LESS: 
         case ND_LSHFT: case ND_RSHFT: case ND_SUB: case ND_ADD:
-        case ND_MOD: case ND_DIV: case ND_MULT: 
+        case ND_MOD: case ND_DIV: case ND_MULT: case ND_COND: 
+        case ND_UINCR: case ND_UDECR: case ND_UAND: case ND_UDEREF: 
+        case ND_UPLUS: case ND_UMINUS: case ND_UBITNOT: case ND_UNOT:
+        case ND_SELECT: case ND_CALL: case ND_DOT: case ND_ARROW: 
+        case ND_INCR: case ND_DECR: 
             printf("-%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->loc.y, n->loc.x);
+            break;
         default: 
 
             break; 
@@ -1052,4 +1079,63 @@ void dump_AST(Node n, int indent) {
     }
 }
 
+Node make_error_recovery_node() {
+    Token tok = lex(); 
+    assert(tok->type == ERROR);
+    Node err_nd = make_node(0, PERM); 
+    err_nd->err = 1;
+    err_nd->loc = tok->loc;
+    switch (tok->subtype) {
+        case ULLONG: case SLLONG: case ULONG: 
+        case SLONG: case UINT: case SINT: 
+            err_nd->id = ND_CONST;
+            err_nd->subid = ND_INT; 
+            err_nd->subsubid = tok->subtype;
+            err_nd->val.intval.ull = 0;
+            return err_nd;
+        case SFLOAT: 
+            err_nd->id = ND_CONST;
+            err_nd->subid = ND_FLOAT;
+            err_nd->subsubid = SFLOAT;
+            err_nd->val.floatval.ld = 0.0;
+            return err_nd;
+        case UCHAR:
+            err_nd->id = ND_CONST; 
+            err_nd->subid = ND_UCHAR;
+            err_nd->val.charval.c = '\0';
+            return err_nd;
+        case STR: 
+            err_nd->id = ND_STR;
+            err_nd->val.strval = tok->val.strval;
+            return err_nd;
+        default: 
+            error(&(tok->loc), "internal error while recovering from an error");
+            return err_nd;
+    }
+    return err_nd;
+}
+
+void escape_first(int till) {
+    Token tok;
+    switch(till) {
+        case ND_EXPR: ND_ASSIGNEXPR:
+            while (1) {
+                tok = lex(); 
+                if (tok->type == PUNCT && (tok->subtype == LBRAC || tok->subtype == INCR ||
+                            tok->subtype == DECR || tok->subtype == BAND || tok->subtype == STAR ||
+                            tok->subtype == PLUS || tok->subtype == NEG || tok->subtype == BNOT ||
+                            tok->subtype == NOT)) {
+                    restore_tok(&tok); 
+                    return;
+                }
+                if (tok->type == KEYWORD && (tok->subtype == SIZEOF || 
+                            tok->subtype == _ALIGNOF || tok->subtype == _GENERIC)) {
+                    restore_tok(&tok); 
+                    return; 
+                }
+            }
+        default: 
+            return;
+    }
+}
 

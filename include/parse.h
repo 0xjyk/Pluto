@@ -9,7 +9,6 @@ token_store *ts;
 
 // expressions
 Node primary_expression();
-Node expression();
 Node generic_selection();
 Node generic_assoc_list();
 Node generic_association();
@@ -31,6 +30,7 @@ Node logical_AND_expression();
 Node logical_OR_expression();
 Node conditional_expression();
 Node assignment_expression();
+Node expression();
 Node constant_expression();
 
 // declarations
@@ -94,3 +94,5 @@ Node make_node(int id, int arena);
 void add_child(Node n, Node *nw);
 void restore_tok(Token *tok);
 void print_node(Node n, int indent);
+Node make_error_recovery_node();
+void escape_first(int till);

@@ -315,6 +315,7 @@ void ensure_buflen(int len);
 // lex.c 
 Token lex();
 void lexdriver(char *pp_file);
+Token make_token(token tok);
 
 // parse.c 
 Node parse(char *pp_file);

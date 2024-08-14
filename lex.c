@@ -27,7 +27,6 @@ Token is_charconst();
 Token is_string();
 Token is_keyword();
 Token is_punct();
-Token make_token(token tok);
 int is_escapeseq(int *val, char *s);
 void process_gnu_directive();
 
@@ -90,7 +89,7 @@ Token lex() {
             }
             s++;
             error(&loc, "pluto doesn't support char16_t, char32_t & wchar_t character constants");
-            token tok = {.type=ERROR, .len=(s-buf.curr), .loc=loc};
+            token tok = {.type=ERROR, .subtype=UCHAR, .len=(s-buf.curr), .loc=loc};
             tok.val.strval = make_string(buf.curr, tok.len);
             return make_token(tok);
         } else if (buf.curr[1] == '\"') {
@@ -102,7 +101,7 @@ Token lex() {
             }
             s++;
             error(&loc, "pluto doesn't support char16_t, char32_t & wchar_t string constants");
-            token tok = {.type=ERROR, .len=(s-buf.curr), .loc=loc};
+            token tok = {.type=ERROR, .subtype=STR, .len=(s-buf.curr), .loc=loc};
             tok.val.strval = make_string(buf.curr, tok.len);
             return make_token(tok);
         } else if ((buf.curr[0] == 'u') && (buf.curr[1] == '8') 
@@ -115,7 +114,7 @@ Token lex() {
             }
             s++;
             error(&loc, "pluto doesn't support UTF-8 string constants");
-            token tok = {.type=ERROR, .len=(s-buf.curr), .loc=loc};
+            token tok = {.type=ERROR, .subtype=STR, .len=(s-buf.curr), .loc=loc};
             tok.val.strval = make_string(buf.curr, tok.len);
             return make_token(tok);
         }
@@ -132,9 +131,10 @@ Token lex() {
         return t;
     // error - didn't match any lexical elements
     } else { 
-        token tok = {.type=ERROR, .len=1, .loc=loc};
-        tok.val.strval = make_string("unknown character", 17);
-        return make_token(tok);
+        error(&loc, "detected an unknown character");
+        // skip the character and lex again
+        buf.curr++;
+        return lex();
     }
      
 }

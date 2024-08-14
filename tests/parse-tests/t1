@@ -20,7 +20,6 @@ _Static_assert (49 / 7, "stringg");
 _Static_assert (9 % 2, "stringg");
 _Static_assert (true && true || false, "true");
 _Static_assert (true || true && false, "true");
-/*
 _Static_assert (!n, "stringg");
 _Static_assert (*ptr, "stringg");
 _Static_assert (+20, "stringg");
@@ -31,8 +30,8 @@ _Static_assert (++i, "stringg");
 _Static_assert (--i, "stringg");
 _Static_assert (i++, "stringg");
 _Static_assert (i--, "stringg");
+_Static_assert (++i++, "stringg");
 _Static_assert (ptr->mem, "stringg");
 _Static_assert (node.type, "stringg");
-_Static_assert (arr[5] "stringg");
-*/
+_Static_assert (arr[5], "stringg");
 
