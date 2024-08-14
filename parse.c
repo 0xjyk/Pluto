@@ -221,11 +221,13 @@ Node postfix_expression(){
     Node pf_root;
     
     // do (type_name) work here : TODO also need to ensure that type-name is followed
+    /*
     if (tok->type == PUNCT && tok->subtype == LBRAC) {
         
         pf_root = make_node(ND_INIT, PERM);
     return pf_root;
     }
+    */
     
     // first parse primary expression
     restore_tok(&tok);
@@ -250,7 +252,7 @@ Node postfix_expression(){
                     error(&(tok->loc), "expected closing ']' after expression in seclection expression");
                     while ((tok = lex())->type != PUNCT || tok->subtype != RSQBRAC) {};
                 }
-                return sel;
+                break;
                 }
             case LBRAC:
                 {
@@ -260,7 +262,7 @@ Node postfix_expression(){
                
                 if ((tok = lex())->type == PUNCT && tok->subtype == RBRAC) 
                     return call;
-
+                restore_tok(&tok);
                 Node arg_expr_list = argument_expression_list(); 
                 add_child(call, &arg_expr_list);
                 pf_root = call;
@@ -268,7 +270,7 @@ Node postfix_expression(){
                     error(&(tok->loc), "expected closing ')' after expression in function call expression");
                     while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
                 }
-                return call;
+                break;
                 }
             case '.':
                 {
@@ -277,13 +279,13 @@ Node postfix_expression(){
                 add_child(dot, &pf_root); 
                 Node id = make_node(ND_ID, PERM);
                 tok = lex();
-                if (tok != ID) {
+                if (tok->type != ID) {
                     error(&(tok->loc), "expected identifier after '.' operator");
                 }
                 id->val.strval = tok->val.strval;
                 add_child(dot, &id); 
                 pf_root = id;
-                return dot;
+                break;
                 }
             case ARROW:
                 {
@@ -292,13 +294,13 @@ Node postfix_expression(){
                 add_child(arr, &pf_root); 
                 Node idd = make_node(ND_ID, PERM); 
                 tok = lex();
-                if (tok != ID) {
-                    error(&(tok->loc), "expected identifier after '.' operator");
+                if (tok->type != ID) {
+                    error(&(tok->loc), "expected identifier after '->' operator");
                 }
                 idd->val.strval = tok->val.strval; 
                 add_child(arr, &idd);
                 pf_root = idd;
-                return arr;
+                break;
                 }
             case INCR: 
                 {
@@ -306,7 +308,7 @@ Node postfix_expression(){
                 incr->loc = tok->loc;
                 add_child(incr, &pf_root); 
                 pf_root = incr; 
-                return incr;
+                break;
                 }
             case DECR: 
                 {
@@ -314,7 +316,7 @@ Node postfix_expression(){
                 decr->loc = tok->loc;
                 add_child(decr, &pf_root); 
                 pf_root = decr; 
-                return decr;
+                break;
                 }
             default: 
                 restore_tok(&tok); 
@@ -364,6 +366,9 @@ Node unary_expression(){
             nd->loc = tok->loc;
             Node temp;
             switch (tok->subtype) {
+                case LBRAC: 
+                    restore_tok(&tok);
+                    return postfix_expression();
                 case INCR: 
                     nd->id = ND_UINCR;
                     temp = unary_expression();
@@ -1055,7 +1060,7 @@ void print_node(Node n, int indent) {
         case ND_UINCR: case ND_UDECR: case ND_UAND: case ND_UDEREF: 
         case ND_UPLUS: case ND_UMINUS: case ND_UBITNOT: case ND_UNOT:
         case ND_SELECT: case ND_CALL: case ND_DOT: case ND_ARROW: 
-        case ND_INCR: case ND_DECR: 
+        case ND_INCR: case ND_DECR: case ND_ARGEXPR: 
             printf("-%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->loc.y, n->loc.x);
             break;

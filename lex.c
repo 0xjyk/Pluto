@@ -48,8 +48,7 @@ Token lex() {
     if ((buf.bufend - buf.curr) <= MINBUFLEN && !pp_read_complete) {
         fillbuf();
     }
-
-    if (pp_read_complete && buf.curr == (buf.bufend - 1)) {
+    if (pp_read_complete && (buf.bufend - 1 - buf.curr <= 0)) {
         token tok = {.type=EOI, .len=0, .loc=loc};
         return make_token(tok);
     }
@@ -72,7 +71,7 @@ Token lex() {
             loc.y++; 
         }
     }
-    if (pp_read_complete && buf.curr == (buf.bufend - 1)) {
+    if (pp_read_complete && (buf.bufend - 1 - buf.curr <= 0)) {
         token tok = {.type=EOI, .len=0, .loc=loc};
         return make_token(tok);
     }
@@ -238,7 +237,7 @@ Token is_identifier() {
     while (map[*s] & (DIGIT | LETTER)) {
         s++;
         // EOI terminates identifier 
-        if (pp_read_complete && s == (buf.bufend - 1)) {
+        if (pp_read_complete && (buf.bufend - 1 - s <= 0)) {
             break;
         }
     }
