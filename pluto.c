@@ -33,11 +33,9 @@ int main(int argc, char *argv[]) {
         // parse seeks tokens from lex, which in-turn
         // reads a stream of characters from ppfiles, converting them into tokens
         if (JOBSCOPE == LEX) {
-            printf("requested only lexing\n");
             // call lexdriver to perform only lexing 
             lexdriver((char *)vec_get(ppfiles, i));  
         } else if (JOBSCOPE == PARSE) {
-            printf("requested l, p\n");
             Node root = parse((char *)vec_get(ppfiles, i));
             dump_AST(root, 0);
         } else if (JOBSCOPE == TYPECHECK) {

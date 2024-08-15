@@ -272,7 +272,7 @@ Node postfix_expression(){
                 }
                 break;
                 }
-            case '.':
+            case DOT:
                 {
                 Node dot = make_node(ND_DOT, PERM);
                 dot->loc = tok->loc;
@@ -284,7 +284,7 @@ Node postfix_expression(){
                 }
                 id->val.strval = tok->val.strval;
                 add_child(dot, &id); 
-                pf_root = id;
+                pf_root = dot;
                 break;
                 }
             case ARROW:
@@ -299,7 +299,7 @@ Node postfix_expression(){
                 }
                 idd->val.strval = tok->val.strval; 
                 add_child(arr, &idd);
-                pf_root = idd;
+                pf_root = arr;
                 break;
                 }
             case INCR: 
@@ -832,15 +832,13 @@ Node static_assert_declaration(){
     Node const_ex = constant_expression();
     add_child(sad, &const_ex);
     if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
-        error(&(tok->loc), "expected ',' between constant expression and string literal in \
-                the static assert declaration");
+        error(&(tok->loc), "expected ',' between constant expression and string literal in the static assert declaration");
     }
     
     // string literal 
     if ((tok = lex())->type != STR) {
         // error - expected a string constant
-        error(&(tok->loc), "expected string literal as the second argument of the static \
-                assert declaration");
+        error(&(tok->loc), "expected string literal as the second argument of the static assert declaration");
     }
     Node str = make_node(ND_STR, PERM);
     str->val.strval = tok->val.strval;
@@ -967,52 +965,57 @@ void print_node(Node n, int indent) {
 #include "include/node.h"
 #undef NODE
     assert(n != NULL);
+    /*
     char idnt[indent + 1];
     memset(idnt, ' ', indent);
     idnt[indent] = '\0';
     printf("%s", idnt);
+    */
+    for (int i = 1; i < indent; i++) {
+        printf("|   ");
+    }
     switch (n->id) {
         case ND_ROOT:
-            printf("-%s \n", node_map[ND_ROOT - 256]);
+            printf("%s \n", node_map[ND_ROOT - 256]);
             break;
         case ND_ID: 
-            printf("-%s \"%s\" <line:%d, col:%d>\n", node_map[n->id - 256], \
+            printf("|-- %s \"%s\" <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->val.strval, n->loc.y, n->loc.x);
             break;
         case ND_STR:
-            printf("-%s \"%s\" <line:%d, col:%d>\n", node_map[n->id - 256], \
+            printf("|-- %s \"%s\" <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->val.strval, n->loc.y, n->loc.x);
             break;
         case ND_CONST:
             switch (n->subid) {
                 case ND_UCHAR:
-                    printf("-%s:%s \'%c\'<line:%d, col:%d>\n", node_map[n->id - 256], \
+                    printf("|-- %s:%s \'%c\'<line:%d, col:%d>\n", node_map[n->id - 256], \
                             node_map[n->subid - 256], n->val.charval.c, n->loc.y, n->loc.x);
                     break; 
                 case ND_INT: 
                     switch (n->subsubid) {
                         case ULLONG: 
-                            printf("-%s:%s:ULLONG %llu <line:%d, col:%d>\n", node_map[ n->id - 256], \
+                            printf("|-- %s:%s:ULLONG %llu <line:%d, col:%d>\n", node_map[ n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.ull, n->loc.y, n->loc.x);
                             break;
                         case SLLONG: 
-                            printf("-%s:%s:SLLONG %lld <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:SLLONG %lld <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.ll, n->loc.y, n->loc.x);
                             break;
                         case ULONG: 
-                            printf("-%s:%s:ULONG %lu <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:ULONG %lu <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.ul, n->loc.y, n->loc.x);
                             break;
                         case SLONG: 
-                            printf("-%s:%s:SLONG %ld <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:SLONG %ld <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.l, n->loc.y, n->loc.x);
                             break;
                         case UINT: 
-                            printf("-%s:%s:UINT %u <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:UINT %u <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.u, n->loc.y, n->loc.x);
                             break;
                         case SINT: 
-                            printf("-%s:%s:SINT %d <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:SINT %d <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.intval.i, n->loc.y, n->loc.x);
                             break; 
                         }
@@ -1020,15 +1023,15 @@ void print_node(Node n, int indent) {
                 case ND_FLOAT:
                     switch (n->subsubid) {
                         case SDOUBLE: 
-                            printf("-%s:%s:SDOUBLE %f <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:SDOUBLE %f <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.floatval.d, n->loc.y, n->loc.x);
                             break;
                         case LDOUBLE: 
-                            printf("-%s:%s:LDOUBLE %Lf <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:LDOUBLE %Lf <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.floatval.ld, n->loc.y, n->loc.x);
                             break;
                         case SFLOAT: 
-                            printf("-%s:%s:SFLOAT %f <line:%d, col:%d>\n", node_map[n->id - 256], \
+                            printf("|-- %s:%s:SFLOAT %f <line:%d, col:%d>\n", node_map[n->id - 256], \
                                    node_map[n->subid - 256], n->val.floatval.f, n->loc.y, n->loc.x);
                             break;
                     }
@@ -1045,11 +1048,11 @@ void print_node(Node n, int indent) {
 
             break; 
         case ND_SAD: 
-            printf("-%s <line:%d, col:%d>\n", node_map[n->id - 256], \
+            printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                 n->loc.y, n->loc.x);
             break;
         case ND_ASSIGNEXPR: 
-            printf("-%s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
+            printf("|-- %s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     node_map[n->subid - 256], n->loc.y, n->loc.x);
             break;
         case ND_OR: case ND_AND: case ND_IOR: case ND_XOR: 
@@ -1061,7 +1064,7 @@ void print_node(Node n, int indent) {
         case ND_UPLUS: case ND_UMINUS: case ND_UBITNOT: case ND_UNOT:
         case ND_SELECT: case ND_CALL: case ND_DOT: case ND_ARROW: 
         case ND_INCR: case ND_DECR: case ND_ARGEXPR: 
-            printf("-%s <line:%d, col:%d>\n", node_map[n->id - 256], \
+            printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->loc.y, n->loc.x);
             break;
         default: 
@@ -1079,7 +1082,7 @@ void dump_AST(Node n, int indent) {
     // print children
     Node kid = n->kids;
     while (kid) {
-        dump_AST(kid, indent + 4);
+        dump_AST(kid, indent + 1);
         kid = kid->nxt;
     }
 }
