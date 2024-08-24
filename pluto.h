@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <errno.h>
-
+#include <float.h>
 // pluto.h
 
 // cli flags
@@ -46,6 +46,7 @@ struct type;
 struct symbol;
 union align;
 struct node;
+struct field;
 
 typedef struct symbol *Symbol;
 /*
@@ -139,11 +140,13 @@ enum {
 };
 
 typedef union constantval {
+    _Bool b;
     unsigned char uc; 
-    signed char c;
-    short sh;
-    unsigned short ush;
-    int i;
+    signed char sc;
+    char c;
+    short s;
+    unsigned short us;
+    signed int i;
     unsigned int ui;
     long int l;
     unsigned long int ul;
@@ -160,16 +163,30 @@ typedef union constantval {
 typedef struct type *Type;
 typedef struct type {
     int id;
-    Type t;
+    Type type;
     int align;
     int size;
+    char *strrep;
+    unsigned int usignedf:1;
     union {
         // sym is used for structs, enum, arrays
         Symbol sym;
         // function type
+        struct {
+            // a null terminated array of types
+            Type *proto;
+        } f;
     } u;
-
 } type;
+
+typedef struct field *Field;
+typedef struct field {
+    char *name; 
+    Type type;
+    int offset; 
+    short bitsize;
+    Field next;
+} field;
 
 enum {CONSTANTS=1, LABELS, GLOBAL, PARAM, LOCAL};
 typedef struct symbol {
@@ -179,12 +196,22 @@ typedef struct symbol {
     Symbol prev;
     Type type;
     int sclass;
+    unsigned int temporary:1;
+    unsigned int generated:1;
+    unsigned int defined:1;
+    unsigned int addressed:1;
     // value ?? TODO - update gradually 
     union {
         struct {
+            Field flist;
+        } s;
+        struct {
             constantval v; 
             Symbol s;
-        }c;
+        } c;
+        struct {
+            constantval min, max;
+        } limits;
     } u;
 } symbol;
 
@@ -215,7 +242,7 @@ typedef struct node {
     int id;
     int subid;
     int subsubid;
-    Type typ;
+    Type type;
     location loc;
     int num_kids;
     Node nxt;
@@ -240,14 +267,14 @@ typedef struct node {
             // char 16,32 & wc not supported
         } charval; 
         char *strval;
+        Symbol sym;
     } val;
 
 } node;
 
 
-/*
- *  global variables
- */
+// gloabal variables
+
 extern unsigned char JOBSCOPE;
 extern int num_files;
 extern char **infiles;
@@ -272,14 +299,48 @@ extern Table lables;
 // TODO: types
 extern Table types;
 extern unsigned int level;
+// pre-installed types
+extern Type booltype;      // _Bool
+extern Type sbooltype;     // signed _Bool
+extern Type ubooltype;     // unsigned _Bool
+
+extern Type chartype;      // char
+extern Type schartype;     // signed char
+extern Type uchartype;     // unsigned char
+
+extern Type shorttype;     // signed short
+extern Type sshorttype;    // signed short
+extern Type ushorttype;    // unsigned short
+
+extern Type inttype;       // signed short
+extern Type sinttype;      // signed int
+extern Type uinttype;      // unsigned int
+
+extern Type longtype;      // signed long
+extern Type slongtype;     // signed long
+extern Type ulongtype;     // unsigned long
+
+extern Type longlongtype;  // signed long long
+extern Type slonglongtype; // signed long long
+extern Type ulonglongtype; // unsigned long long
+
+extern Type floattype;     // float
+extern Type doubletype;    // double
+extern Type longdoubletype;// long double
+
+extern Type voidtype;      // void
+
+extern Type voidptype;     // void *
+extern Type charptype;     // char *
+
+extern Type uptype;        // unsigned pointer
+extern Type sptype;        // signed pointer
 
 extern Node root;
 extern token_store *ts;
 
 
-/*
- *  forward declartions
- */
+// exported functions
 
 // util.c
 void parseoptions(int argc, char **argv);
@@ -326,4 +387,47 @@ void warning(Location l, const char *msg);
 void error(Location l, const char *msg);
 
 // sym.c
+unsigned int enterscope(); 
+unsigned int exitscope(); 
+Symbol install(char *name, Table *tb, unsigned int lev, int on);
+Symbol lookup(char *name, Table tb);
+int genlabel(int n); 
+
+
+
+// types.c
+Type make_type(int id, Type t, int size, int align, void *sym, char *strrep);
+Type make_struct(int id, char *tag, Location l);
+Field make_field(char *name, Type t, Type ft);
+void rmtypes(int lev);
+void typeinit();
+void dumptypes();
+char *ttos(Type t);
+#define isqual(t)           ((t)->id >= CONST \
+                            && (t)->id <= _ATOMIC)
+#define unqual(t)           (isqual(t) ? (t)->type : (t))
+#define isvolatile(t)       ((t)->id == VOLATILE \
+                            || (t)->id == CONST + VOLATILE)
+#define isconst(t)          ((t)->id == CONST \
+                            || (t)->id == CONST + VOLATILE)
+#define isarray(t)          (unqual(t)->id == ARRAY)
+#define isstruct(t)         (unqual(t)->id == STRUCT)
+#define isunion(t)          (unqual(t)->id == UNION)
+#define isfunc(t)           (unqual(t)->id == FUNCTION)
+#define isptr(t)            (unqual(t)->id == POINTER)
+#define ischar(t)           (unqual(t)->id == CHAR)
+#define isint(t)            (unqual(t)->id >= CHAR \
+                            && (t)->id <= UNSIGNED)
+#define isarith(t)          (unqual(t)->id >= CHAR \
+                            && (t)->id <= DOUBLE
+#define isunsigned(t)       (unqual(t)->id == UNSIGNED)
+#define isdouble(t)         (unqual(t)->id >= FLOAT \
+                            || unqual(t)->id <= DOUBlE)
+#define isscalar(t)         (isarith(t) || unqual(t)->id == ENUM \
+                            || unqual(t)->id == POINTER)
+#define isenum(t)           (unqual(t)->id == ENUM)
+#define isstructunion(t)     (unqual(t)->id == STRUCT \
+                            || unqual(t)->id == UNION)
+
+
 #endif

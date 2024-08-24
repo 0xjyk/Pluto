@@ -1,0 +1,460 @@
+// expect void
+void;
+
+// expect const void
+const void;
+
+// expect const+volatile void
+const volatile void;
+volatile const void;
+
+// expect char
+char;
+
+// expect const char
+const char;
+
+// expect const+volatile char
+const volatile char;
+volatile const char;
+
+// expect signed char
+signed char;
+
+// expect const signed char
+const signed char;
+const char signed;
+signed const char;
+signed char const;
+char const signed;
+char signed const;
+
+// expect const+volatile signed char
+const volatile signed char;
+const volatile char signed;
+const signed volatile char;
+const signed char volatile;
+const char signed volatile;
+const char volatile signed;
+volatile const signed char;
+volatile const char signed;
+volatile signed const char;
+volatile signed char const;
+volatile char signed const;
+volatile char const signed;
+signed volatile const char;
+signed volatile char const;
+signed const volatile char; 
+signed const char volatile;
+signed char const volatile;
+signed char volatile const;
+char volatile const signed;
+char volatile signed const;
+char const volatile signed;
+char const signed volatile;
+char signed volatile const;
+char signed const volatile;
+
+// expect unsigned char
+unsigned char;
+
+// expect const signed char
+const signed char;
+const char signed;
+signed const char;
+signed char const;
+char const signed;
+char signed const;
+
+// expect const+volatile signed char
+const volatile signed char;
+const volatile char signed;
+const signed volatile char;
+const signed char volatile;
+const char signed volatile;
+const char volatile signed;
+volatile const signed char;
+volatile const char signed;
+volatile signed const char;
+volatile signed char const;
+volatile char signed const;
+volatile char const signed;
+signed volatile const char;
+signed volatile char const;
+signed const volatile char; 
+signed const char volatile;
+signed char const volatile;
+signed char volatile const;
+char volatile const signed;
+char volatile signed const;
+char const volatile signed;
+char const signed volatile;
+char signed volatile const;
+char signed const volatile;
+
+
+// expect signed short
+short;
+signed short;
+short signed;
+
+
+// expect const signed short
+const short;
+short const;
+const signed short;
+const short signed;
+signed const short;
+signed short const;
+short const signed;
+short signed const;
+
+// expect const+volatile signed short
+const volatile short;
+const short volatile;
+volatile const short;
+volatile short const;
+short const volatile;
+short volatile const;
+const volatile signed short;
+const volatile short signed;
+const signed volatile short;
+const signed short volatile;
+const short signed volatile;
+const short volatile signed;
+volatile const signed short;
+volatile const short signed;
+volatile signed const short;
+volatile signed short const;
+volatile short signed const;
+volatile short const signed;
+signed volatile const short;
+signed volatile short const;
+signed const volatile short; 
+signed const short volatile;
+signed short const volatile;
+signed short volatile const;
+short volatile const signed;
+short volatile signed const;
+short const volatile signed;
+short const signed volatile;
+short signed volatile const;
+short signed const volatile;
+
+
+// expect unsigned short
+unsigned short;
+short unsigned;
+
+// expect const unsigned short
+const unsigned short;
+const short unsigned;
+unsigned const short;
+unsigned short const;
+short const unsigned;
+short unsigned const;
+
+// expect const+volatile signed short
+const volatile unsigned short;
+const volatile short unsigned;
+const unsigned volatile short;
+const unsigned short volatile;
+const short unsigned volatile;
+const short volatile unsigned;
+volatile const unsigned short;
+volatile const short unsigned;
+volatile unsigned const short;
+volatile unsigned short const;
+volatile short unsigned const;
+volatile short const unsigned;
+unsigned volatile const short;
+unsigned volatile short const;
+unsigned const volatile short; 
+unsigned const short volatile;
+unsigned short const volatile;
+unsigned short volatile const;
+short volatile const unsigned;
+short volatile unsigned const;
+short const volatile unsigned;
+short const unsigned volatile;
+short unsigned volatile const;
+short unsigned const volatile;
+
+// expect signed int
+int;
+signed int;
+int signed;
+
+
+// expect const signed int
+const int;
+int const;
+const signed int;
+const int signed;
+signed const int;
+signed int const;
+int const signed;
+int signed const;
+
+// expect const+volatile signed int
+const volatile int;
+const int volatile;
+volatile const int;
+volatile int const;
+int const volatile;
+int volatile const;
+const volatile signed int;
+const volatile int signed;
+const signed volatile int;
+const signed int volatile;
+const int signed volatile;
+const int volatile signed;
+volatile const signed int;
+volatile const int signed;
+volatile signed const int;
+volatile signed int const;
+volatile int signed const;
+volatile int const signed;
+signed volatile const int;
+signed volatile int const;
+signed const volatile int; 
+signed const int volatile;
+signed int const volatile;
+signed int volatile const;
+int volatile const signed;
+int volatile signed const;
+int const volatile signed;
+int const signed volatile;
+int signed volatile const;
+int signed const volatile;
+
+
+// expect unsigned int
+unsigned int;
+int unsigned;
+
+// expect const unsigned int
+const unsigned int;
+const int unsigned;
+unsigned const int;
+unsigned int const;
+int const unsigned;
+int unsigned const;
+
+// expect const+volatile signed int
+const volatile unsigned int;
+const volatile int unsigned;
+const unsigned volatile int;
+const unsigned int volatile;
+const int unsigned volatile;
+const int volatile unsigned;
+volatile const unsigned int;
+volatile const int unsigned;
+volatile unsigned const int;
+volatile unsigned int const;
+volatile int unsigned const;
+volatile int const unsigned;
+unsigned volatile const int;
+unsigned volatile int const;
+unsigned const volatile int; 
+unsigned const int volatile;
+unsigned int const volatile;
+unsigned int volatile const;
+int volatile const unsigned;
+int volatile unsigned const;
+int const volatile unsigned;
+int const unsigned volatile;
+int unsigned volatile const;
+int unsigned const volatile;
+
+
+// expect signed long
+long;
+signed long;
+long signed;
+
+
+// expect const signed long
+const long;
+long const;
+const signed long;
+const long signed;
+signed const long;
+signed long const;
+long const signed;
+long signed const;
+
+// expect const+volatile signed long
+const volatile long;
+const long volatile;
+volatile const long;
+volatile long const;
+long const volatile;
+long volatile const;
+const volatile signed long;
+const volatile long signed;
+const signed volatile long;
+const signed long volatile;
+const long signed volatile;
+const long volatile signed;
+volatile const signed long;
+volatile const long signed;
+volatile signed const long;
+volatile signed long const;
+volatile long signed const;
+volatile long const signed;
+signed volatile const long;
+signed volatile long const;
+signed const volatile long; 
+signed const long volatile;
+signed long const volatile;
+signed long volatile const;
+long volatile const signed;
+long volatile signed const;
+long const volatile signed;
+long const signed volatile;
+long signed volatile const;
+long signed const volatile;
+
+
+// expect unsigned long
+unsigned long;
+long unsigned;
+
+// expect const unsigned long
+const unsigned long;
+const long unsigned;
+unsigned const long;
+unsigned long const;
+long const unsigned;
+long unsigned const;
+
+// expect const+volatile signed long
+const volatile unsigned long;
+const volatile long unsigned;
+const unsigned volatile long;
+const unsigned long volatile;
+const long unsigned volatile;
+const long volatile unsigned;
+volatile const unsigned long;
+volatile const long unsigned;
+volatile unsigned const long;
+volatile unsigned long const;
+volatile long unsigned const;
+volatile long const unsigned;
+unsigned volatile const long;
+unsigned volatile long const;
+unsigned const volatile long; 
+unsigned const long volatile;
+unsigned long const volatile;
+unsigned long volatile const;
+long volatile const unsigned;
+long volatile unsigned const;
+long const volatile unsigned;
+long const unsigned volatile;
+long unsigned volatile const;
+long unsigned const volatile;
+
+
+
+// expect signed long long
+long long;
+signed long long;
+long long signed;
+
+
+// expect const signed long long
+const long long;
+long long const;
+const signed long long;
+const long long signed;
+signed const long long;
+signed long long const;
+long long const signed;
+long long signed const;
+
+// expect const+volatile signed long long
+const volatile long long;
+const long long volatile;
+volatile const long long;
+volatile long long const;
+long long const volatile;
+long long volatile const;
+const volatile signed long long;
+const volatile long long signed;
+const signed volatile long long;
+const signed long long volatile;
+const long long signed volatile;
+const long long volatile signed;
+volatile const signed long long;
+volatile const long long signed;
+volatile signed const long long;
+volatile signed long long const;
+volatile long long signed const;
+volatile long long const signed;
+signed volatile const long long;
+signed volatile long long const;
+signed const volatile long long; 
+signed const long long volatile;
+signed long long const volatile;
+signed long long volatile const;
+long long volatile const signed;
+long long volatile signed const;
+long long const volatile signed;
+long long const signed volatile;
+long long signed volatile const;
+long long signed const volatile;
+
+
+// expect unsigned long long
+unsigned long long;
+long long unsigned;
+
+// expect const unsigned long long
+const unsigned long long;
+const long long unsigned;
+unsigned const long long;
+unsigned long long const;
+long long const unsigned;
+long long unsigned const;
+
+// expect const+volatile signed long long
+const volatile unsigned long long;
+const volatile long long unsigned;
+const unsigned volatile long long;
+const unsigned long long volatile;
+const long long unsigned volatile;
+const long long volatile unsigned;
+volatile const unsigned long long;
+volatile const long long unsigned;
+volatile unsigned const long long;
+volatile unsigned long long const;
+volatile long long unsigned const;
+volatile long long const unsigned;
+unsigned volatile const long long;
+unsigned volatile long long const;
+unsigned const volatile long long; 
+unsigned const long long volatile;
+unsigned long long const volatile;
+unsigned long long volatile const;
+long long volatile const unsigned;
+long long volatile unsigned const;
+long long const volatile unsigned;
+long long const unsigned volatile;
+long long unsigned volatile const;
+long long unsigned const volatile;
+
+// expect float
+float;
+
+// expect double
+double;
+
+// expect long double
+long double;
+
+// expect _Bool
+_Bool;
+
+
+// _Complex;

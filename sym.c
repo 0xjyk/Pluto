@@ -13,9 +13,9 @@
     3. create a new label and increment gloab counter
     4. find a label - return a symbol 
     5. generate a variable
-
-
-
+    citation: a large portion of this page has been sourced from DRH & CWF's book, a retargetable
+              c compiler. this implies that this particular file shouldn't be considered as original
+              work.
 */
 #include "pluto.h"
 
@@ -56,14 +56,15 @@ unsigned int enterscope() {
 }
 
 unsigned int exitscope() {
-    assert(level > MIN_LEVEL);
+    assert(level >= MIN_LEVEL);
+    rmtypes(level);
     if (level >= MIN_LEVEL) {
-        // TODO: remove types 
-
-        // TODO: remove identifiers
-
+        if (types->level == level)
+            types = types->prev;
+        if (identifiers->level == level)
+            identifiers = identifiers->prev;
     }
-    // don't do anything if level is already at its lowest
+    // don't do anything to the table if level was greater than the tables level
     return --level;
 }
 
@@ -71,18 +72,16 @@ unsigned int exitscope() {
     installs a new symbol entry into tb. appends a new table
     if tb did not exits or if lev is greater that tb's level
 */
-Symbol install(char *name, Table tb, unsigned int lev, int an) {
-    assert(lev > 0);
+Symbol install(char *name, Table *tb, unsigned int lev, int an) {
+    assert(lev >= MIN_LEVEL);
     // first try to locate the table
-    Table tbcpy = tb;
+    Table tbcpy = *tb;
     
-    // if tb didn't exit to being with create the table with lev
-    if (!tb)
-        tbcpy = make_table(NULL, lev);
     // if current level is lower than level append new table with lev
-    if (tb->level < lev) 
-        tbcpy = make_table(tb, lev);
-    // at this point if tbcpy isn't of lev then it's an internal error
+    if (tbcpy->level < lev) 
+        tbcpy = *tb = make_table(tbcpy, lev);
+    // at this point if tbcpy isn't of lev (since it shouldn't be greater 
+    // then it's an internal error
     assert(tbcpy->level == lev);
     
     // bindly install name into tbcpy
@@ -122,11 +121,52 @@ Symbol lookup(char *name, Table tb) {
 }
 
 int genlabel(int n) {
-    static int label= 1;
+    static int label = 1;
 
     label += n;
     return label - n;
 }
 
+/* TODO: marked as comment since incomplete 
+Symbol make_constant(type ty, constantval c) {
+    struct entry *e; 
+    unsigned int h = c.ui & (TAB_HASH_SIZE - 1);
+    ty = unqual(ty); 
+    for (e = constants->buckets[h]; e; e = e->next) {
+        if (eqtype(ty, p->sym.type, 1)) {
+            // return symbol entry if values are equal
+            switch (ty->id) {
+                case UCHAR:     if (c.uc == p->sym.u.c.v.uc)    return &p->sym; break;
+                case SCHAR:     if (c.c == p->sym.u.c.v.c)      return &p->sym; break;
+                case SHORT:     if (c.sh == p->sym.u.c.v.sh)    return &p->sym; break;
+                case ULLONG:    if (c.ull == p->sym.u.c.v.ull)  return &p->sym; break;
+                case SLLONG:    if (c.ll == p->sym.u.c.v.ll)    return &p->sym; break;
+                case ULONG:     if (c.ul == p->sym.u.c.v.ul)    return &p->sym; break;
+                case SLONG:     if (c.l == p->sym.u.c.v.l)      return &p->sym; break;
+                case UINT:      if (c.ui == p->sym.u.c.v.ui)    return &p->sym; break;
+                case SINT:      if (c.i == p->sym.u.c.v.i)      return &p->sym; break;
+                case SDOUBLE:   if (c.d == p->sym.u.c.v.d)      return &p->sym; break;
+                case LDOUBLE:   if (c.ld == p->sym.u.c.v.ld)    return &p->sym; break;
+                case SFLOAT:    if (c.f == p->sym.u.c.v.f)      return &p->sym; break;
+                case ARRAY: case FUNCTION:
+                case POINTER:   if (c.p == p->sym.u.c.v.p)      return &p->sym; break;
+            }
 
+        }
+    }
+    e = alloc(sizeof(struct entry), PERM); 
+    e->sym.name = vtoa(ty, c); 
+    e->sym.scope = CONSTANTS; 
+    e->sym.type = ty;
+    e->sym.sclass = STATIC; 
+    e->sym.u.c.v = c; 
+    e->link = constants->buckets[h]; 
+    e->sym.up = constants->all; 
+    constants->all = &e->sym; 
+    constants->buckets[h] = e;
+    e->sym.defined = 1;
+    return &e->sym;
+}
 
+*/
+// TODO: labels, intconst, generated variables, temporary variables

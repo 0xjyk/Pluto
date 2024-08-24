@@ -1,0 +1,9 @@
+/*
+int id;
+char c;
+signed char sc;
+_Bool a, b, c;
+
+*/
+int t = b + c;
+char c = d = e = 'a';

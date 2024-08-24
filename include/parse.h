@@ -4,6 +4,51 @@ location loc;
 Node root;
 token_store *ts;
 
+// storage class specifier constants
+#define SCS_TYPEDEF         0x1
+#define SCS_EXTERN          0x2
+#define SCS_STATIC          0x4 
+#define SCS_THREAD_LOCAL    0x8
+#define SCS_AUTO            0x10
+#define SCS_REGISTER        0x20
+// type specifier constants
+#define TS_VOID             0x1
+#define TS_CHAR             0x2
+#define TS_SHORT            0x4
+#define TS_INT              0x8
+#define TS_LONG             0x10
+#define TS_LLONG            0x20
+#define TS_FLOAT            0x40
+#define TS_DOUBLE           0x80
+#define TS_SIGNED           0x100
+#define TS_UNSIGNED         0x200
+#define TS_BOOL             0x400
+#define TS_COMPLEX          0x400
+#define TS_ATOMIC           0x1000
+#define TS_STRUCT           0x2000
+#define TS_UNION            0x4000
+#define TS_ENUM             0x8000
+// type qualifier constants
+#define TQ_CONST            0x1
+#define TQ_RESTRICT         0x2
+#define TQ_VOLATILE         0x4
+#define TQ_ATOMIC           0x8
+// function specifier constants
+#define FS_INLINE           0x1
+#define FS_NORETURN         0x2
+
+struct dec_spec {
+    // storage class specifier
+    unsigned int scs:6;
+    // type specifier
+    unsigned int ts:16;
+    // type qualifier
+    unsigned int tq:3;
+    // function specifier
+    unsigned int fs:2;
+    // typedef name: TODO
+};
+
 
 // parsing functions
 
@@ -34,24 +79,20 @@ Node expression();
 Node constant_expression();
 
 // declarations
-Node declaration();
-Node declaration_specifiers();
-Node init_declarator_list();
-Node static_assert_declaration();
-Node storage_class_specifier();
-Node type_specifier();
-Node type_qualifier();
-Node function_specifier();
-Node alignment_specifier();
-Node init_declarator();
-Node declarator();
+Type declaration_specifiers();
+Node init_declarator_list(Type ds);
+int storage_class_specifier(struct dec_spec *ds);
+int type_specifier(struct dec_spec *ds, Type *t);
+int type_qualifier(struct dec_spec *ds);
+int function_specifier(struct dec_spec *ds);
+int alignment_specifier(struct dec_spec *ds);
+Node init_declarator(Type ds);
+Node declarator(Type ds);
 Node initializer();
 Node atomic_type_specifier();
-Node struct_or_union_specifier();
+Type struct_or_union_specifier();
 Node enum_specifier();
-Node typedef_name();
-// Node struct_or_union(); not needed; only contains terminals
-Node struct_declaration_list();
+Field struct_declaration_list();
 Node struct_declaration();
 Node specifier_qualifier_list();
 Node struct_declarator_list();
@@ -60,7 +101,7 @@ Node enumerator_list();
 Node enumerator();
 Node enumeration_constant();
 Node pointer();
-Node direct_declarator();
+Node direct_declarator(Type ds);
 Node type_qualifier_list();
 Node parameter_type_list();
 Node identifier_list();
@@ -70,6 +111,7 @@ Node abstract_declarator();
 Node direct_abstract_declarator();
 Node designation();
 Node designator_list();
+Node static_assert_declaration();
 
 // statements
 Node statement();
@@ -96,3 +138,4 @@ void restore_tok(Token *tok);
 void print_node(Node n, int indent);
 Node make_error_recovery_node();
 void escape_first(int till);
+Type build_type(struct dec_spec ds, Type tt);
