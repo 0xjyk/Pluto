@@ -326,6 +326,7 @@ Node init_declarator(Type ds){
     Token tok = lex();
     // function definition
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
+        restore_tok(&tok);
         return function_definition(ds, dd);
     }
     if (tok->type == PUNCT && tok->subtype == ASSIGN) {
@@ -343,15 +344,14 @@ Node init_declarator(Type ds){
 Node declarator(Type ds){
     // pointer[opt] direct_declarator
     Token tok = lex();
-    // do pointer work
-    if (tok->type == PUNCT && tok->subtype == STAR) {}
+    if (tok->type == PUNCT && tok->subtype == STAR) {
+        restore_tok(&tok);
+        ds = pointer(ds); 
+    } else 
+        restore_tok(&tok);
 
-    restore_tok(&tok);
     // do direct_declarator work
-    Node dd = direct_declarator(ds);
-
-
-
+    return direct_declarator(ds);
 }
 Node direct_declarator(Type ds){
     // identifier
@@ -370,65 +370,185 @@ Node direct_declarator(Type ds){
         dd->val.strval = tok->val.strval;
         dd->type = ds;
         dd->loc = tok->loc;
-
     } else if (tok->type == PUNCT && tok->subtype == LBRAC){
         dd = declarator(ds);
-
         tok = lex();
-        if (tok->type != PUNCT || tok->subtype != RBRAC)
+        if (tok->type != PUNCT || tok->subtype != RBRAC) {
             error(&tok->loc, "missing closing ')' in direct declarator");
-
-    } else if (tok->type != PUNCT || tok->subtype != LBRAC) {
+            restore_tok(&tok);
+        }
+    } else {
+        dd = make_node(ND_ID, PERM);
+        dd->val.strval = dtos(genlabel(1));
+        dd->type = ds;
+        dd->loc = tok->loc;
         error(&tok->loc, "expected either identifier or '(' in direct declarator");
+        restore_tok(&tok);
     }
 
-    tok = lex();
-    while (tok->type == PUNCT && (tok->subtype == LSQBRAC || tok->subtype == LBRAC)) {
+    while ((tok = lex())->type == PUNCT && (tok->subtype == LSQBRAC || tok->subtype == LBRAC)) {
 
-        // function declaration
         if (tok->subtype == LSQBRAC) {
-            // todo
-        } else if (tok->subtype == LBRAC) {
-            Node fn_call = make_node(ND_FUNC_CALL, PERM);
-            add_child(fn_call, &dd);
-            dd = fn_call;
+            // todo array work
 
-            tok = lex();
-            if (tok->type == ID) {
-                restore_tok(&tok);
-                Node args = identifier_list();
-                add_child(fn_call, &args);
-            }
-            if (tok->type != PUNCT || tok->subtype != RBRAC) {
-                restore_tok(&tok);
-                error(&tok->loc, "expected either identifier or closing ')' in function call");
-            }
+            continue;
         }
+        Node param_list = NULL;
+        tok = lex();
+        if (first(ND_DS, tok)) {
+            restore_tok(&tok);
+            param_list = parameter_type_list();
+            tok = lex();
+        } else {
+            param_list = make_node(ND_PARM_LIST, PERM);
+            param_list->loc = tok->loc;
+            Node param = make_node(ND_PARM, PERM); 
+            param->loc = tok->loc;
+            param->type = voidtype; 
+            add_child(param_list, &param);
+        }
+        // at this point we should have the mandatory parameter_type_list
+        if (tok->type != PUNCT || tok->subtype != RBRAC) {
+            error(&tok->loc, "missing closing ')' in function declaration");
+            restore_tok(&tok);
+        }
+        // possibly function definition
+        tok = lex(); 
+        if (tok->type == PUNCT && tok->subtype == LCBRAC) {
+            restore_tok(&tok); 
+            return function_definition(dd, param_list);
+        }
+        // not a function definition, must be a function declaration
+        restore_tok(&tok);
+        Node fn_decl = make_node(ND_FUNC_DECL, PERM);
+        add_child(fn_decl, &dd); 
+        add_child(fn_decl, &param_list);
+        dd = fn_decl;
     }
 
     restore_tok(&tok);
     return dd;
 }
 
-Node pointer(){
+Type pointer(Type ds){
     // * type_qualifier_list[opt]
     // * type_qualifier_list[opt] pointer
+    Token tok = lex();
+    if (tok->type != PUNCT || tok->subtype != STAR) {
+        restore_tok(&tok); 
+        return ds;
+    }
+    ds = make_ptr(ds);
+    _Bool brk = 1;
+    while (brk) {
+       tok = lex(); 
+       switch(tok->subtype) {
+           case CONST: case RESTRICT:
+           case VOLATILE: case _ATOMIC:
+               restore_tok(&tok); 
+               ds = type_qualifier_list(ds);
+               break;
+           case STAR:
+               ds = make_ptr(ds);
+               break;
+           default:
+               brk = 0;
+               restore_tok(&tok);
+       }
+    }
+    return ds;
+    /*
+    ds = make_ptr(ds);
+    tok = lex();
+    switch(tok->subtype) {
+        case CONST: case RESTRICT: 
+        case VOLATILE: case _ATOMIC:
+            restore_tok(&tok);
+            ds = type_qualifier_list(ds);
+            // don't break, fall through to check recursive case
+        case STAR: 
+            restore_tok(&tok);
+            ds = pointer(ds);
+            break;
+        default:
+            restore_tok(&tok);
+            return ds;
+    }
+    */
 }
-Node type_qualifier_list(){
+Type type_qualifier_list(Type ds){
     // type_qualifier
     // type_qualifier_list type_qualifier
+    Token tok;
+    Type tq;
+    unsigned short tqmap = 0;
+    _Bool brk = 1;
+    while (brk) {
+        tok = lex();
+        switch(tok->subtype) {
+            case CONST: 
+                tqmap |= TQ_CONST; break;
+            case RESTRICT:
+                tqmap |= TQ_RESTRICT; break;
+            case VOLATILE:
+                tqmap |= TQ_VOLATILE; break;
+            case _ATOMIC:
+                tqmap |= TQ_ATOMIC; break;
+            default:
+                restore_tok(&tok);
+                brk = 0;
+        }
+    }
+    return qual(tqmap, ds);
 }
 Node parameter_type_list(){
     // parameter_list
     // parameter_list , ...
+    return parameter_list();
 }
 Node parameter_list(){
     // parameter_declaration
     // parameter_list , parameter_declaration
+    Token tok = lex();
+    Node param_list = make_node(ND_PARM_LIST, PERM);
+    param_list->loc = tok->loc;
+    restore_tok(&tok);
+    Node param = parameter_declaration();
+    param->loc = param_list->loc;
+    add_child(param_list, &param);
+    location l = tok->loc;
+    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
+        tok = lex();
+        l = tok->loc;
+        if (tok->type == PUNCT && tok->subtype == ELLIPS) {
+            param_list->id = ND_PARM_LIST_VARD;
+            return param_list;
+        }
+        restore_tok(&tok);
+        param = parameter_declaration();
+        param->loc = l;
+        add_child(param_list, &param);
+    }
+    restore_tok(&tok);
+    return param_list;
 }
 Node parameter_declaration(){
     // declaration_specifiers declarator
     // declaration_specifiers abstract_declarator[opt]
+    Type ds = declaration_specifiers(); 
+    Node param;
+    Token tok = lex();
+    // incorrect todo
+    if (first(ND_DECL, tok)) {
+        restore_tok(&tok);
+        param = declarator(ds);
+    } else {
+        param = make_node(ND_ID, PERM);
+        param->val.strval = dtos(genlabel(1));
+        param->type = ds;
+        restore_tok(&tok);
+    }
+    return param;
 }
 Node identifier_list(){
     // identifier

@@ -398,12 +398,17 @@ int genlabel(int n);
 // types.c
 Type make_type(int id, Type t, int size, int align, void *sym, char *strrep);
 Type make_struct(int id, char *tag, Location l);
+Type make_func(Type t, Type *proto);
+Type make_ptr(Type t);
+Type make_array(Type t, int size, int align);
 Field make_field(char *name, Type t, Type ft);
+Type qual(int id, Type t);
+int isqual(Type t);
 void rmtypes(int lev);
 void typeinit();
 void dumptypes();
 char *ttos(Type t);
-#define isqual(t)           ((t)->id >= CONST \
+//#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))
 #define isvolatile(t)       ((t)->id == VOLATILE \

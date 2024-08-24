@@ -1,4 +1,5 @@
 #include "pluto.h"
+#include "include/parse.h"
 
 // type operators - CHAR, SHORT, INT, LONG, FLOAT, DOUBLE, UNSIGNED, _BOOL, _COMPLEX, 
 // VOID, STRUCT, ENUM, UNION, ARRAY, POINTER, FUNCTION, CONST, RESTRICT, VOLATILE, _ATOMIC
@@ -82,24 +83,65 @@ Type make_type(int id, Type t, int size, int align, void *sym, char *strrep) {
     return &e->type;
 }
 
+/*
 char *ttos(Type t) {
-    char *typestr = alloc(100, PERM);
-    *typestr = '\0';
+    char *str = alloc(100, PERM);
+    *str = '\0';
     while (t) {
-        // not correct: TODO once type format is finalised
-        if (isptr(t)) {
-            // pointer to 
-            strcat(typestr, ttos(t->type));
-            strcat(typestr, "*");
-            // pointer qualifiers TODO
-            return typestr;
+        if (isptr(t) && isqual(t)) {
+            strcat(str, ttos(t->type->type));
+            strcat(str, "*");
+            strcat(str, t->strrep);
+            return str;
+        } else if (isptr(t)) {
+            strcat(str, ttos(t->type));
+            strcat(str, "*");
+            return str;
+        } else {
+            strcat(str, t->strrep);
+            strcat(str, " ");
         }
-        strcat(typestr, t->strrep);
-        strcat(typestr, " ");
         t = t->type;
     }
-    return typestr;
+    return str;
 }
+*/
+
+char *ttos(Type t) {
+    char *str = alloc(100, PERM);
+    *str = '\0';
+    _Bool ls = 0;
+    while (t) {
+        if (isptr(t) && isqual(t)) {
+            strcat(str, ttos(t->type));
+            strcat(str, " ");
+            strcat(str, t->strrep);
+            return str;
+        } else if (isptr(t)) {
+            int cnt = 1;
+            while (t->type->id == POINTER) {
+                cnt++; 
+                t = t->type;
+            }
+            strcat(str, ttos(t->type));
+            strcat(str, " ");
+            for (int i = 0; i < cnt; i++) 
+                strcat(str, "*");
+            return str;
+        } else {
+            if (ls)
+                strcat(str, " ");
+            else 
+                ls = 1;
+            strcat(str, t->strrep);
+        }
+        t = t->type;
+    }
+    return str;
+}
+
+
+
 
 void dumptypes() {
     struct typeentry *tn;
@@ -152,8 +194,48 @@ Type atop(Type t) {
 }
 
 Type qual(int id, Type t) {
-    // check type qualifier rules: TODO - strrep as well
-    return make_type(id, t, t->size, t->align, NULL, "const");
+    // check type qualifier rules: TODO 
+    if (id & TQ_ATOMIC) {
+        return make_type(_ATOMIC, t, 0, 0, NULL, 
+                make_string("_Atomic", 7));
+    }
+    switch (id) {
+        case TQ_CONST: 
+            return make_type(CONST, t, 0, 0, NULL, 
+                    make_string("const", 5));
+        case TQ_RESTRICT:
+            return make_type(RESTRICT, t, 0, 0, NULL, 
+                    make_string("restrict", 8));
+        case TQ_VOLATILE:
+            return make_type(VOLATILE, t, 0, 0, NULL, 
+                    make_string("volatile", 8));
+        case TQ_CONST + TQ_VOLATILE:
+            return make_type(CONST+VOLATILE, t, 0, 0, NULL, 
+                    make_string("const volatile", 14));
+        case TQ_CONST + TQ_RESTRICT:
+            return make_type(CONST+RESTRICT, t, 0, 0, NULL, 
+                    make_string("const restrict", 14));
+        case TQ_CONST + TQ_RESTRICT + TQ_VOLATILE:
+            return make_type(CONST+VOLATILE+RESTRICT, t, 0, 0, NULL, 
+                    make_string("const volatile restrict", 23));
+    }
+    // don't qual if it didn't match any case
+    return t;
+}
+
+int isqual(Type t) {
+    if (!t)
+        return 0;
+    switch(t->id) {
+        case CONST: case RESTRICT: case VOLATILE: case _ATOMIC:
+        case CONST + VOLATILE: case CONST + RESTRICT: 
+        case VOLATILE + RESTRICT: 
+        case CONST + VOLATILE + RESTRICT:
+            return 1;
+        default:
+            return 0;
+    }
+    return 0;
 }
 
 Type make_func(Type t, Type *proto) {

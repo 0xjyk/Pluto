@@ -215,22 +215,10 @@ void print_node(Node n, int indent) {
             printf("|-- %s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     node_map[n->subid - 256], n->loc.y, n->loc.x);
             break;
-        case ND_OR: case ND_AND: case ND_IOR: case ND_XOR: 
-        case ND_BAND: case ND_NEQ: case ND_EQ: case ND_GEQ:
-        case ND_LEQ: case ND_GREATER: case ND_LESS: 
-        case ND_LSHFT: case ND_RSHFT: case ND_SUB: case ND_ADD:
-        case ND_MOD: case ND_DIV: case ND_MULT: case ND_COND: 
-        case ND_UINCR: case ND_UDECR: case ND_UAND: case ND_UDEREF: 
-        case ND_UPLUS: case ND_UMINUS: case ND_UBITNOT: case ND_UNOT:
-        case ND_SELECT: case ND_CALL: case ND_DOT: case ND_ARROW: 
-        case ND_INCR: case ND_DECR: case ND_ARGEXPR: case ND_INIT:
-        case ND_INIT_LIST:
-            printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
-                    n->loc.y, n->loc.x);
+        default:
+            printf("|-- %s type: %s <line:%d, col:%d>\n", node_map[n->id - 256], \
+                    ttos(n->type), n->loc.y, n->loc.x);
             break;
-        default: 
-
-            break; 
     }
 }
 
@@ -306,5 +294,21 @@ void escape_first(int till) {
         default: 
             return;
     }
+}
+
+_Bool first(int id, Token tok) {
+    switch(id) {
+        case ND_DS:
+            if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _NORETURN) || 
+                    (tok->type == ID && lookup(tok->val.strval, types)))
+                    return 1;
+            break;
+        case ND_DECL:
+            if (tok->type == ID || (tok->type == PUNCT && (tok->subtype == STAR || tok->subtype == LBRAC)))
+                return 1;
+        default:
+            break;
+    }
+    return 0;
 }
 
