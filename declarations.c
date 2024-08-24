@@ -3,6 +3,11 @@
 
 // declarations
 Type declaration_specifiers(){
+    // storage_class_specifiers declarations_specifiers[opt]
+    // type_specifiers declarations_specifiers[opt]
+    // type_qualifiers declarations_specifiers[opt]
+    // function_specifiers declarations_specifiers[opt]
+    // alignment_specifiers declarations_specifiers[opt]
     Token tok;
     // used if declaration is a struct, union or typdefed identifier
     Type t = NULL;
@@ -49,6 +54,7 @@ Type declaration_specifiers(){
 
 
 int storage_class_specifier(struct dec_spec *ds){
+    // typedef | extern | static | _Thread_local | auto | register
     Token tok = lex();
     if (tok->type != KEYWORD) {
         restore_tok(&tok);
@@ -73,6 +79,12 @@ int storage_class_specifier(struct dec_spec *ds){
     return 0;
 }
 int type_specifier(struct dec_spec *ds, Type *t){
+    // void | char | short | int | long | float
+    // double | signed | unsigned | _Bool | _Complex
+    // atomic_type_specifier
+    // struct_or_union_specifier
+    // enum_specifier
+    // typedef_name
     Token tok = lex();
     if (tok->type != KEYWORD && tok->type != ID) {
         restore_tok(&tok);
@@ -138,7 +150,94 @@ int type_specifier(struct dec_spec *ds, Type *t){
     restore_tok(&tok);
     return 0;
 }
+Type struct_or_union_specifier(){
+    Token tok = lex();
+    Type su;
+
+    // pick construct
+    if (tok->type != KEYWORD || (tok->subtype != STRUCT && tok->subtype != UNION))
+        error(&tok->loc, "expected struct or union keyword");
+    int id = tok->subtype;
+    location l = tok->loc;
+
+    // extract tag
+    char *tag = make_string("", 0);
+    if ((tok = lex())->type == ID)
+        tag = tok->val.strval;
+    else
+        restore_tok(&tok);
+
+    // If tag wasn't defined and struct declaration list wasn't defined either, error
+    if (!(*tag) && (tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
+        error(&tok->loc, "expected struct declaration list in struct/union declaration");
+        // error recovery work - return dummy struct/union
+    }
+    su = make_struct(id, tag, &loc);
+    tok = lex();
+
+    // struct definition
+    if (tok->type == PUNCT && tok->subtype == LCBRAC) {
+        su = make_struct(id, tag, &loc);
+        // struct declaration list
+        su->u.sym->u.s.flist = struct_declaration_list();
+
+        if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
+            error(&tok->loc, "expected '}' at the end of a struct declaration");
+            restore_tok(&tok);
+        }
+
+    // struct reference
+    } else if (*tag) {
+        Symbol sym = lookup(tag, types);
+        if (!sym || !isstructunion(sym->type)) {
+            error(&loc, "type error: provided struct/union tag doesn't correspond to a valid struct/union type");
+            // error recovery work - return dummy struct/union
+        }
+        su = sym->type;
+    }
+
+    return su;
+}
+
+Field struct_declaration_list(){
+    // struct_declaration
+    // struct_declaration_list struct_declaration
+}
+Node struct_declaration(){
+    // specifier_qualifier_list struct_declaration_list[opt] ;
+    // static_assert_declaration
+}
+Node specifier_qualifier_list(){
+    // type_specifier specifier_qualifier_list[opt]
+    // type_qualifier specifier_qualifier_list[opt]
+}
+Node struct_declarator_list(){
+    // struct_declarator
+    // struct_declator_list , struct_declarator
+}
+Node struct_declarator(){
+    // declarator
+    // declarator[opt] : constant_expression
+}
+Node enum_specifier(){
+    // enum identifier[opt] { emunerator_list }
+    // enum identifier[opt] { enumerator_list , }
+    // enum identifier
+}
+Node enumerator_list(){
+    // enumerator
+    // enumerator_list , enumerator
+}
+Node enumerator(){
+    // enumeration_constant
+    // enumeration_constant = constant_expression
+}
+Node atomic_type_specifier(){
+    // _Atomic ( type_name )
+}
+
 int type_qualifier(struct dec_spec *ds){
+    // const | restrict | volatile | _Atomic 
     Token tok = lex();
     if (tok->type != KEYWORD) {
         restore_tok(&tok);
@@ -161,6 +260,7 @@ int type_qualifier(struct dec_spec *ds){
     return 0;
 }
 int function_specifier(struct dec_spec *ds){
+    // inline | _Noreturn
     Token tok = lex();
     if (tok->type != KEYWORD) {
         restore_tok(&tok);
@@ -177,6 +277,8 @@ int function_specifier(struct dec_spec *ds){
     return 0;
 }
 int alignment_specifier(struct dec_spec *ds){
+    // _Alignas ( type_name )
+    // _Alignas ( constant_expression )
     Token tok = lex();
     if (tok->type != KEYWORD) {
         restore_tok(&tok);
@@ -191,6 +293,7 @@ int alignment_specifier(struct dec_spec *ds){
     restore_tok(&tok);
     return 0;
 }
+
 
 Node init_declarator_list(Type ds){
     // init_declarator
@@ -306,73 +409,50 @@ Node direct_declarator(Type ds){
     restore_tok(&tok);
     return dd;
 }
-Node atomic_type_specifier(){}
-Type struct_or_union_specifier(){
-    Token tok = lex();
-    Type su;
 
-    // pick construct
-    if (tok->type != KEYWORD || (tok->subtype != STRUCT && tok->subtype != UNION))
-        error(&tok->loc, "expected struct or union keyword");
-    int id = tok->subtype;
-    location l = tok->loc;
-
-    // extract tag
-    char *tag = make_string("", 0);
-    if ((tok = lex())->type == ID)
-        tag = tok->val.strval;
-    else
-        restore_tok(&tok);
-
-    // If tag wasn't defined and struct declaration list wasn't defined either, error
-    if (!(*tag) && (tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
-        error(&tok->loc, "expected struct declaration list in struct/union declaration");
-        // error recovery work - return dummy struct/union
-    }
-    su = make_struct(id, tag, &loc);
-    tok = lex();
-
-    // struct definition
-    if (tok->type == PUNCT && tok->subtype == LCBRAC) {
-        su = make_struct(id, tag, &loc);
-        // struct declaration list
-        su->u.sym->u.s.flist = struct_declaration_list();
-
-        if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
-            error(&tok->loc, "expected '}' at the end of a struct declaration");
-            restore_tok(&tok);
-        }
-
-    // struct reference
-    } else if (*tag) {
-        Symbol sym = lookup(tag, types);
-        if (!sym || !isstructunion(sym->type)) {
-            error(&loc, "type error: provided struct/union tag doesn't correspond to a valid struct/union type");
-            // error recovery work - return dummy struct/union
-        }
-        su = sym->type;
-    }
-
-    return su;
+Node pointer(){
+    // * type_qualifier_list[opt]
+    // * type_qualifier_list[opt] pointer
 }
-Node enum_specifier(){}
-Field struct_declaration_list(){}
-Node struct_declaration(){}
-Node specifier_qualifier_list(){}
-Node struct_declarator_list(){}
-Node struct_declarator(){}
-Node enumerator_list(){}
-Node enumerator(){}
-Node enumeration_constant(){}
-Node pointer(){}
-Node type_qualifier_list(){}
-Node parameter_type_list(){}
-Node identifier_list(){}
-Node parameter_list(){}
-Node parameter_declaration(){}
-Node abstract_declarator(){}
-Node direct_abstract_declarator(){}
+Node type_qualifier_list(){
+    // type_qualifier
+    // type_qualifier_list type_qualifier
+}
+Node parameter_type_list(){
+    // parameter_list
+    // parameter_list , ...
+}
+Node parameter_list(){
+    // parameter_declaration
+    // parameter_list , parameter_declaration
+}
+Node parameter_declaration(){
+    // declaration_specifiers declarator
+    // declaration_specifiers abstract_declarator[opt]
+}
+Node identifier_list(){
+    // identifier
+    // identifier , identifier
+}
+Node type_name(){
+    // specifier_qualifier_list abstract_declarator[opt]
+}
+Node abstract_declarator(){
+    // pointer
+    // pointer[opt] direct_abstract_declarator
+}
+Node direct_abstract_declarator(){
+    // ( abstract_declarator )
+    // direct_abstract_declarator[opt] [ type_qualifier_list[opt] assignment_expression[opt] ]
+    // direct_abstract_declarator[opt] [ static type_qualifier_list[opt] assignment_expression ]
+    // direct_abstract_declarator[opt] [ type_qualifier_list[opt] static assignment_expression ]
+    // direct_abstract_declarator[opt] [ * ]
+    // direct_abstract_declarator[opt] ( parameter_type_list[opt] )
+}
 Node initializer(){
+    // assignment_expression
+    // { initializer_list }
+    // { initializer_list , }
     Token tok = lex();
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         restore_tok(&tok);
@@ -381,9 +461,21 @@ Node initializer(){
     restore_tok(&tok);
     return assignment_expression();
 }
-Node initializer_list(){}
-Node designation(){}
-Node designator_list(){}
+Node initializer_list(){
+    // designation[opt] initializer
+    // initializer_list , designation[opt] initializer
+}
+Node designation(){
+    // designator_list = 
+}
+Node designator_list(){
+    // designator
+    // designator_list designator
+}
+Node designator(){
+    // [ constant_expression ]
+    // . identifier
+}
 Node static_assert_declaration(){
     // _Static_assert ( constant_expression , string-literal ) ;
     Token tok;
@@ -422,3 +514,71 @@ Node static_assert_declaration(){
     return sad;
 }
 
+Type build_type(struct dec_spec ds, Type ty) {
+    // build type
+    Type dec_type = NULL;
+    // add type qualifiers, if specified
+    if (ds.tq & TQ_ATOMIC)
+       dec_type = make_type(_ATOMIC, NULL, 0, 0, NULL, make_string("_Atomic", 6));
+    else if (ds.tq == TQ_CONST)
+        dec_type = make_type(CONST, NULL, 0, 0, NULL, make_string("const", 5));
+    else if (ds.tq == TQ_VOLATILE)
+        dec_type = make_type(CONST, NULL, 0, 0, NULL, make_string("volatile", 8));
+    else if (ds.tq == (TQ_CONST + TQ_VOLATILE))
+        dec_type = make_type(CONST + VOLATILE, NULL, 0, 0, NULL, make_string("const volatile", 14));
+    // add type specifier
+    Type *t = (dec_type ? &dec_type->type : &dec_type);
+    if (ds.ts == TS_VOID)
+        *t = voidtype;
+    else if ((ds.ts == TS_BOOL) ||
+            (ds.ts == TS_SIGNED + TS_BOOL) ||
+            (ds.ts == TS_UNSIGNED + TS_BOOL))
+        *t = booltype;
+    else if (ds.ts == TS_CHAR)
+        *t = chartype;
+    else if (ds.ts == TS_SIGNED + TS_CHAR)
+        *t = schartype;
+    else if (ds.ts == TS_UNSIGNED + TS_CHAR)
+        *t = uchartype;
+    else if ((ds.ts == TS_SHORT) ||
+            (ds.ts == TS_SIGNED + TS_SHORT) ||
+            (ds.ts == TS_SHORT + TS_INT) ||
+            (ds.ts == TS_SIGNED + TS_SHORT + TS_INT))
+        *t = sshorttype;
+    else if ((ds.ts == TS_UNSIGNED + TS_SHORT) ||
+            (ds.ts == TS_UNSIGNED + TS_SHORT + TS_INT))
+        *t = ushorttype;
+    else if ((ds.ts == TS_INT) ||
+            (ds.ts == TS_SIGNED) ||
+            (ds.ts == TS_SIGNED + TS_INT))
+        *t = sinttype;
+    else if ((ds.ts == TS_UNSIGNED) ||
+            (ds.ts == TS_UNSIGNED + TS_INT))
+        *t = uinttype;
+    else if ((ds.ts == TS_LONG) ||
+            (ds.ts == TS_SIGNED + TS_LONG) ||
+            (ds.ts == TS_LONG + TS_INT) ||
+            (ds.ts == TS_SIGNED + TS_LONG + TS_INT))
+        *t = slongtype;
+    else if ((ds.ts == TS_UNSIGNED + TS_LONG) ||
+            (ds.ts == TS_UNSIGNED + TS_LONG + TS_INT))
+        *t = ulongtype;
+    else if ((ds.ts == TS_LLONG) ||
+            (ds.ts == TS_SIGNED + TS_LLONG) ||
+            (ds.ts == TS_LLONG + TS_INT) ||
+            (ds.ts == TS_SIGNED + TS_LLONG + TS_INT))
+        *t = slonglongtype;
+    else if ((ds.ts == TS_UNSIGNED + TS_LLONG) ||
+            (ds.ts == TS_UNSIGNED + TS_LLONG + TS_INT))
+        *t = ulonglongtype;
+    else if (ds.ts == TS_FLOAT)
+        *t = floattype;
+    else if (ds.ts == TS_DOUBLE)
+        *t = doubletype;
+    else if (ds.ts == TS_LONG + TS_DOUBLE)
+        *t = longdoubletype;
+    // struct or union
+
+    // make sure dec type is not null
+    return dec_type;
+}

@@ -174,9 +174,6 @@ Node generic_association(){
     // default : assignment_expression
 
    }
-Node type_name(){
-    //
-}
 
 Node postfix_expression(){
     // primary_expression
@@ -783,3 +780,5 @@ Node expression(){
 Node constant_expression(){
     return conditional_expression();
 }
+
+Node enumeration_constant(){}
