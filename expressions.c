@@ -19,6 +19,7 @@ Node primary_expression(){
             return nd;
         case UCHAR:
             nd = make_node(ND_CONST, PERM);
+            nd->type = uchartype;
             nd->subid = ND_UCHAR;
             nd->val.charval.c = tok->val.charval.c;
             nd->loc = tok->loc;
@@ -30,22 +31,28 @@ Node primary_expression(){
             nd->loc = tok->loc;
             switch (tok->subtype) {
                 case ULLONG:
+                    nd->type = ulonglongtype;
                     nd->val.intval.ull = tok->val.intval.ull; break;
                 case SLLONG:
+                    nd->type = slonglongtype;
                     nd->val.intval.ll = tok->val.intval.ll; break;
                 case ULONG:
+                    nd->type = ulongtype;
                     nd->val.intval.ul = tok->val.intval.ul; break;
                 case SLONG:
+                    nd->type = slongtype;
                     nd->val.intval.l = tok->val.intval.l; break;
                 case UINT:
+                    nd->type = uinttype;
                     nd->val.intval.u = tok->val.intval.u; break;
                 case SINT:
+                    nd->type = sinttype;
                     nd->val.intval.i = tok->val.intval.i; break;
                 default:
                     // internal error shouldn't reach this branch
                     error(&(tok->loc), "internal error while processing int primary expression");
                     // for error recovery, set err to 1 & store a dummy int val
-                    nd->err = 1; nd->subsubid = SINT; nd->val.intval.i = 1;
+                    nd->err = 1; nd->type = sinttype; nd->subsubid = SINT; nd->val.intval.i = 1;
                     break;
             }
             return nd;
@@ -56,20 +63,24 @@ Node primary_expression(){
             nd->loc = tok->loc;
             switch (tok->subtype) {
                 case SDOUBLE:
+                    nd->type = doubletype;
                     nd->val.floatval.d = tok->val.floatval.d; break;
                 case LDOUBLE:
+                    nd->type = longdoubletype;
                     nd->val.floatval.ld = tok->val.floatval.ld; break;
                 case SFLOAT:
+                    nd->type = floattype;
                     nd->val.floatval.f = tok->val.floatval.f; break;
                 default:
                     // internal error shoudn't reach this branch
                     error(&(tok->loc), "internal error while processing float primary expression");
-                    nd->err = 1; nd->subsubid = SFLOAT; nd->val.floatval.f = 1;
+                    nd->err = 1; nd->type = floattype; nd->subsubid = SFLOAT; nd->val.floatval.f = 1;
                     break;
             }
             return nd;
         case STR:
             nd = make_node(ND_STR, PERM);
+            nd->type = charptype;
             nd->val.strval = tok->val.strval;
             nd->loc = tok->loc;
             return nd;

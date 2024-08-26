@@ -18,7 +18,7 @@ Type declaration_specifiers(){
             tok = lex();
             // exit loop if FIRST(declarator) or ';'
             if ((tok->type == PUNCT && (tok->subtype == SCOL
-                || tok->subtype == LBRAC || tok->subtype == STAR ||
+                || tok->subtype == LBRAC || tok->subtype == STAR || 
                 tok->subtype == COM || tok->subtype == RBRAC)) ||
                 (tok->type == ID && !lookup(tok->val.strval, types)))
                 break;
@@ -212,7 +212,7 @@ Field struct_declaration_list(Type su){
         else {
             fd->next = struct_declaration(su);
         }
-        // struct declaration could possibly
+        // struct declaration could possibly 
         // create multiple fields, move fd to the last field
         while (fd->next)
             fd = fd->next;
@@ -228,13 +228,13 @@ Field struct_declaration_list(Type su){
 Field struct_declaration(Type su){
     // specifier_qualifier_list struct_declaration_list[opt] ;
     // static_assert_declaration
-    Token tok = lex();
-    // do static_assert work
-
-    Type sql = specifier_qualifier_list(su);
+    Token tok = lex(); 
+    // do static_assert work 
+    
+    Type sql = specifier_qualifier_list(su); 
     char *name = make_string("", 0);
     Field fd = NULL, *fdp = &fd;
-
+    
     // struct_declarator_list
     // struct_declarator
     // struct_declartor_list , struct_declarator
@@ -252,7 +252,7 @@ Field struct_declaration(Type su){
             error(&tok->loc, "expected ';' after struct declaration");
         }
         restore_tok(&tok);
-    } else
+    } else 
         return make_field(dtos(genlabel(1)), su, sql);
     return *fdp;
 }
@@ -286,7 +286,7 @@ Node atomic_type_specifier(){
 }
 
 int type_qualifier(struct dec_spec *ds){
-    // const | restrict | volatile | _Atomic
+    // const | restrict | volatile | _Atomic 
     Token tok = lex();
     if (tok->type != KEYWORD) {
         restore_tok(&tok);
@@ -395,8 +395,8 @@ Node declarator(Type ds){
     Token tok = lex();
     if (tok->type == PUNCT && tok->subtype == STAR) {
         restore_tok(&tok);
-        ds = pointer(ds);
-    } else
+        ds = pointer(ds); 
+    } else 
         restore_tok(&tok);
 
     // do direct_declarator work
@@ -451,9 +451,9 @@ Node direct_declarator(Type ds){
         } else {
             param_list = make_node(ND_PARM_LIST, PERM);
             param_list->loc = tok->loc;
-            Node param = make_node(ND_PARM, PERM);
+            Node param = make_node(ND_PARM, PERM); 
             param->loc = tok->loc;
-            param->type = voidtype;
+            param->type = voidtype; 
             add_child(param_list, &param);
         }
         // at this point we should have the mandatory parameter_type_list
@@ -462,15 +462,15 @@ Node direct_declarator(Type ds){
             restore_tok(&tok);
         }
         // possibly function definition
-        tok = lex();
+        tok = lex(); 
         if (tok->type == PUNCT && tok->subtype == LCBRAC) {
-            restore_tok(&tok);
+            restore_tok(&tok); 
             return function_definition(dd, param_list);
         }
         // not a function definition, must be a function declaration
         restore_tok(&tok);
         Node fn_decl = make_node(ND_FUNC_DECL, PERM);
-        add_child(fn_decl, &dd);
+        add_child(fn_decl, &dd); 
         add_child(fn_decl, &param_list);
         dd = fn_decl;
     }
@@ -484,17 +484,17 @@ Type pointer(Type ds){
     // * type_qualifier_list[opt] pointer
     Token tok = lex();
     if (tok->type != PUNCT || tok->subtype != STAR) {
-        restore_tok(&tok);
+        restore_tok(&tok); 
         return ds;
     }
     ds = make_ptr(ds);
     _Bool brk = 1;
     while (brk) {
-       tok = lex();
+       tok = lex(); 
        switch(tok->subtype) {
            case CONST: case RESTRICT:
            case VOLATILE: case _ATOMIC:
-               restore_tok(&tok);
+               restore_tok(&tok); 
                ds = type_qualifier_list(ds);
                break;
            case STAR:
@@ -510,12 +510,12 @@ Type pointer(Type ds){
     ds = make_ptr(ds);
     tok = lex();
     switch(tok->subtype) {
-        case CONST: case RESTRICT:
+        case CONST: case RESTRICT: 
         case VOLATILE: case _ATOMIC:
             restore_tok(&tok);
             ds = type_qualifier_list(ds);
             // don't break, fall through to check recursive case
-        case STAR:
+        case STAR: 
             restore_tok(&tok);
             ds = pointer(ds);
             break;
@@ -535,7 +535,7 @@ Type type_qualifier_list(Type ds){
     while (brk) {
         tok = lex();
         switch(tok->subtype) {
-            case CONST:
+            case CONST: 
                 tqmap |= TQ_CONST; break;
             case RESTRICT:
                 tqmap |= TQ_RESTRICT; break;
@@ -584,7 +584,7 @@ Node parameter_list(){
 Node parameter_declaration(){
     // declaration_specifiers declarator
     // declaration_specifiers abstract_declarator[opt]
-    Type ds = declaration_specifiers();
+    Type ds = declaration_specifiers(); 
     Node param;
     Token tok = lex();
     // incorrect todo
@@ -638,7 +638,7 @@ Node initializer_list(){
     add_child(init_list, &init);
     Token tok;
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
-        tok = lex();
+        tok = lex(); 
         if (tok->type == PUNCT && tok->subtype == RCBRAC) {
             restore_tok(&tok);
             return init_list;
@@ -652,7 +652,7 @@ Node initializer_list(){
 }
 
 Node initializer_list_helper() {
-    // designation[opt] initializer
+    // designation[opt] initializer    
     Token tok = lex();
     Node init = make_node(ND_INIT, PERM);
     init->loc = tok->loc;
@@ -666,9 +666,9 @@ Node initializer_list_helper() {
     return init;
 }
 Node designation(){
-    // designator_list =
-    Node desig_list = designator_list();
-    Token tok = lex();
+    // designator_list = 
+    Node desig_list = designator_list(); 
+    Token tok = lex(); 
     if (tok->type != PUNCT || tok->type != ASSIGN) {
         error(&tok->loc, "expected '=' sign after designator list in initializer");
         restore_tok(&tok);
@@ -679,9 +679,9 @@ Node designator_list(){
     // designator
     // designator_list designator
     Node desig_list = make_node(ND_DESIG_LIST, PERM);
-    Node desig = designator();
+    Node desig = designator(); 
     add_child(desig_list, &desig);
-    Token tok = lex();
+    Token tok = lex(); 
     desig_list->loc = tok->loc;
     while (tok->type = PUNCT && (tok->subtype == LSQBRAC || tok->subtype == DOT)) {
         restore_tok(&tok);
@@ -695,13 +695,13 @@ Node designator_list(){
 Node designator(){
     // [ constant_expression ]
     // . identifier
-    Token tok = lex();
+    Token tok = lex(); 
     if (tok->type == PUNCT && tok->subtype == LSQBRAC) {
         Node sel = make_node(ND_SELECT, PERM);
         sel->loc = tok->loc;
         Node const_expr = constant_expression();
         add_child(sel, &const_expr);
-        tok = lex();
+        tok = lex(); 
         if (tok->type != PUNCT || tok->type != RSQBRAC) {
             error(&tok->loc, "expected closing ']' in  designator");
             restore_tok(&tok);
@@ -714,7 +714,7 @@ Node designator(){
     Node dot = make_node(ND_DOT, PERM);
     dot->loc = tok->loc;
     Node id = make_node(ND_ID, PERM);
-    tok = lex();
+    tok = lex(); 
     if (tok->type != ID) {
         error(&tok->loc, "expected identifier after '.' in designator");
         id->val.strval = dtos(genlabel(1));

@@ -132,94 +132,55 @@ void print_node(Node n, int indent) {
     for (int i = 1; i < indent; i++) {
         printf("|   ");
     }
+#define PCONST(a, b) printf("|-- ND_CONST: [type: %s] \'" a "\' <line:%d, col: %d>\n", \
+        ttos(n->type), n->val.b, n->loc.y, n->loc.x)
 
     // requires complete redo
     switch (n->id) {
-        case ND_ROOT:
-            printf("%s \n", node_map[ND_ROOT - 256]);
-            break;
-        case ND_ID: 
-            printf("|-- %s \"%s\" type: %s <line:%d, col:%d>\n", node_map[n->id - 256], \
+    case ND_ROOT:
+        printf("%s \n", node_map[ND_ROOT - 256]); break;
+    case ND_ID: case ND_STR:
+        printf("|-- %s \"%s\" [type: %s] <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->val.strval, ttos(n->type), n->loc.y, n->loc.x);
-            break;
-        case ND_STR:
-            printf("|-- %s \"%s\" <line:%d, col:%d>\n", node_map[n->id - 256], \
-                    n->val.strval, n->loc.y, n->loc.x);
-            break;
-        case ND_CONST:
-            switch (n->subid) {
-                case ND_UCHAR:
-                    printf("|-- %s:%s \'%c\' <line:%d, col:%d>\n", node_map[n->id - 256], \
-                            node_map[n->subid - 256], n->val.charval.c, n->loc.y, n->loc.x);
-                    break; 
-                case ND_INT: 
-                    switch (n->subsubid) {
-                        case ULLONG: 
-                            printf("|-- %s:%s:ULLONG %llu <line:%d, col:%d>\n", node_map[ n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.ull, n->loc.y, n->loc.x);
-                            break;
-                        case SLLONG: 
-                            printf("|-- %s:%s:SLLONG %lld <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.ll, n->loc.y, n->loc.x);
-                            break;
-                        case ULONG: 
-                            printf("|-- %s:%s:ULONG %lu <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.ul, n->loc.y, n->loc.x);
-                            break;
-                        case SLONG: 
-                            printf("|-- %s:%s:SLONG %ld <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.l, n->loc.y, n->loc.x);
-                            break;
-                        case UINT: 
-                            printf("|-- %s:%s:UINT %u <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.u, n->loc.y, n->loc.x);
-                            break;
-                        case SINT: 
-                            printf("|-- %s:%s:SINT %d <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.intval.i, n->loc.y, n->loc.x);
-                            break; 
-                        }
-                    break; 
-                case ND_FLOAT:
-                    switch (n->subsubid) {
-                        case SDOUBLE: 
-                            printf("|-- %s:%s:SDOUBLE %f <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.floatval.d, n->loc.y, n->loc.x);
-                            break;
-                        case LDOUBLE: 
-                            printf("|-- %s:%s:LDOUBLE %Lf <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.floatval.ld, n->loc.y, n->loc.x);
-                            break;
-                        case SFLOAT: 
-                            printf("|-- %s:%s:SFLOAT %f <line:%d, col:%d>\n", node_map[n->id - 256], \
-                                   node_map[n->subid - 256], n->val.floatval.f, n->loc.y, n->loc.x);
-                            break;
-                    }
-                    break;
+        break;
+    case ND_CONST:
+        switch (n->subid) {
+        case ND_UCHAR:      PCONST("%c", charval.c); break;
+        case ND_INT: 
+            switch (n->subsubid) {
+            case ULLONG:    PCONST("%llu", intval.ull); break;
+            case SLLONG:    PCONST("%lld", intval.ll); break;
+            case ULONG:     PCONST("%lu", intval.ul); break;
+            case SLONG:     PCONST("%ld", intval.l); break;
+            case UINT:      PCONST("%u", intval.u); break;
+            case SINT:      PCONST("%d", intval.i); break;
             }
-            break;
-
-        case ND_EXPR:
-
-
-
-            break;
-        case ND_GENERIC: 
-
             break; 
-        case ND_SAD: 
-            printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
+        case ND_FLOAT:
+            switch (n->subsubid) {
+            case SDOUBLE:   PCONST("%f", floatval.d); break;
+            case LDOUBLE:   PCONST("%Lf", floatval.ld); break;
+            case SFLOAT:    PCONST("%f", floatval.f); break;
+            }
+        break;
+        }
+        break;
+    case ND_EXPR:       break;
+    case ND_GENERIC:    break; 
+    case ND_SAD: 
+        printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                 n->loc.y, n->loc.x);
-            break;
-        case ND_ASSIGNEXPR: 
-            printf("|-- %s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
+        break;
+    case ND_ASSIGNEXPR: 
+        printf("|-- %s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
                     node_map[n->subid - 256], n->loc.y, n->loc.x);
-            break;
-        default:
-            printf("|-- %s type: %s <line:%d, col:%d>\n", node_map[n->id - 256], \
+        break;
+    default:
+        printf("|-- %s [type: %s] <line:%d, col:%d>\n", node_map[n->id - 256], \
                     ttos(n->type), n->loc.y, n->loc.x);
-            break;
+        break;
     }
+#undef PCONST
 }
 
 void dump_AST(Node n, int indent) {

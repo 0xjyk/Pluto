@@ -18,5 +18,8 @@ int func();
 int func(int t);
 void func(char c, int d);
 void func (char **c, _Bool b);
-*/
 void func (void);
+void func(int, char *str, _Bool);
+void (*func)(int, int);
+void func(int, char *,_Bool);
+*/

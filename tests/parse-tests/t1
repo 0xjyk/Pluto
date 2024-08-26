@@ -34,4 +34,5 @@ _Static_assert (++i++, "stringg");
 _Static_assert (ptr->mem, "stringg");
 _Static_assert (node.type, "stringg");
 _Static_assert (arr[5], "stringg");
+_Static_assert (5.5, "stringg");
 
