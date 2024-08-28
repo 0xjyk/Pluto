@@ -43,10 +43,10 @@ Type declaration_specifiers(){
                 error(&tok->loc, "type error: expected declaration specifier within declaration");
         }
         // if ds didn't get updated it's an error
-        if (!ds.scs && !ds.ts && !ds.tq && !ds.fs) {
+        if (!(t || ds.scs || ds.ts || ds.tq || ds.fs)) {
             error(&tok->loc, "type error: expected declaration specifier within declaration");
             restore_tok(&tok);
-            return inttype;
+            return sinttype;
         }
         restore_tok(&tok);
         return build_type(ds, t);
@@ -101,7 +101,7 @@ int type_specifier(struct dec_spec *ds, Type *t){
         Symbol sym = lookup(tok->val.strval, types);
         if (sym == NULL) {
             error(&tok->loc, "type error: identifier doesn't correspond to any valid types");
-            *t = inttype;
+            *t = sinttype;
         } else
             *t = sym->type;
         return 1;
@@ -169,10 +169,16 @@ Type struct_or_union_specifier(){
         restore_tok(&tok);
 
     // If tag wasn't defined and struct declaration list wasn't defined either, error
-    if (!(*tag) && (tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
-        error(&tok->loc, "expected struct declaration list in struct/union declaration");
-        // error recovery work - return dummy struct/union
+    if (!*tag) {
+        tag = dtos(genlabel(1));
+        if (((tok = lex())->type != PUNCT || tok->subtype != LCBRAC)) {
+            error(&tok->loc, "expected struct declaration list in struct/union declaration");
+            // error recovery work - return dummy struct/union
+            return make_struct(id, tag, &loc);
+        }
+        restore_tok(&tok);
     }
+    
     su = make_struct(id, tag, &loc);
     tok = lex();
 
@@ -186,30 +192,23 @@ Type struct_or_union_specifier(){
             restore_tok(&tok);
         }
 
-    // struct reference
-    } else if (*tag) {
-        Symbol sym = lookup(tag, types);
-        if (!sym || !isstructunion(sym->type)) {
-            error(&loc, "type error: provided struct/union tag doesn't correspond to a valid struct/union type");
-            // error recovery work - return dummy struct/union
-        }
-        su = sym->type;
-    }
-
+    } else 
+        restore_tok(&tok);
     return su;
 }
 
 Field struct_declaration_list(Type su){
     // struct_declaration
     // struct_declaration_list struct_declaration
-    Field fd = NULL, *fdp = &fd;
+    Field fd = NULL, ffd;
 
-    Token tok = lex();
-    while((tok = lex())->type != PUNCT && tok->subtype != RCBRAC) {
+    Token tok;
+    while((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
         restore_tok(&tok);
-        if (!fd)
+        if (!fd) {
             fd = struct_declaration(su);
-        else {
+            ffd = fd;
+        } else {
             fd->next = struct_declaration(su);
         }
         // struct declaration could possibly
@@ -217,10 +216,11 @@ Field struct_declaration_list(Type su){
         while (fd->next)
             fd = fd->next;
     }
-    fd = *fdp;
+    fd = ffd;
     if (!fd) {
         error(&tok->loc, "struct declaration list expects atleast one field");
         // make dummy field for error recovery
+        fd = make_field(dtos(genlabel(1)), su, sinttype);
     }
     restore_tok(&tok);
     return fd;
@@ -228,12 +228,12 @@ Field struct_declaration_list(Type su){
 Field struct_declaration(Type su){
     // specifier_qualifier_list struct_declaration_list[opt] ;
     // static_assert_declaration
-    Token tok = lex();
+    Token tok;
     // do static_assert work
 
     Type sql = specifier_qualifier_list(su);
     char *name = make_string("", 0);
-    Field fd = NULL, *fdp = &fd;
+    Field fd = NULL, ffd;
 
     // struct_declarator_list
     // struct_declarator
@@ -241,32 +241,85 @@ Field struct_declaration(Type su){
     tok = lex();
     if (tok->type != PUNCT || tok->subtype != SCOL) {
         // struct_declarator
-        // declarator
-        // declarator[opt] : constant_expression
         do {
-            // todo, once declarator haas been converted; incorrect
-            Node sd = struct_declarator();
-
+            if (!fd) {
+                restore_tok(&tok);
+                fd = struct_declarator(su, sql);
+                ffd = fd;
+            } else 
+                fd->next = struct_declarator(su, sql);
+            if (fd->next)
+                fd = fd->next;
         } while ((tok = lex())->type == PUNCT && tok->subtype == COM);
         if (tok->type != PUNCT || tok->subtype != SCOL) {
             error(&tok->loc, "expected ';' after struct declaration");
         }
-        restore_tok(&tok);
     } else
         return make_field(dtos(genlabel(1)), su, sql);
-    return *fdp;
+    return ffd;
 }
-Type specifier_qualifier_list(){
+Type specifier_qualifier_list() {
     // type_specifier specifier_qualifier_list[opt]
-    // type_qualifier specifier_qualifier_list[opt]
+    // type_qualifer specifier_qualifier_list[opt]
+    struct dec_spec ds = {.scs = 0, .ts = 0, .tq = 0, .fs = 0};
+    int seen = 1;
+    Type t = NULL;
+    Token tok;
+    while (seen) {
+        tok = lex(); 
+        // exit if not a type specifier or type qualifier
+        if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
+            (tok->type == PUNCT && (tok->subtype == COL || 
+            tok->subtype == SCOL || tok->subtype == STAR)))
+            break;
+
+        seen == 0;
+        restore_tok(&tok);
+        if (seen |= type_specifier(&ds, &t))
+            continue;
+        if (seen |= type_qualifier(&ds))
+            continue;
+    }
+    if (!(t || ds.ts || ds.tq)) {
+        error(&tok->loc, "type error: expected type specifier or type qualifier in struct member declaration");
+        restore_tok(&tok);
+        return sinttype;
+    }
+    restore_tok(&tok);
+    return build_type(ds, t);
 }
-Node struct_declarator_list(){
-    // struct_declarator
-    // struct_declator_list , struct_declarator
-}
-Node struct_declarator(){
+
+Field struct_declarator(Type su, Type sql){
     // declarator
     // declarator[opt] : constant_expression
+    Token tok = lex();
+    Symbol sym = NULL;
+    if (first(ND_DECL, tok)) {
+        restore_tok(&tok);
+        sym = declarator(sql, 0);
+        tok = lex();
+    }
+    if (!sym) {
+        sym = alloc(sizeof(symbol), PERM);
+        sym->name = dtos(genlabel(1));
+        sym->type = sql;
+    }
+
+    // convert sym to field
+    Field fd = make_field(sym->name, su, sym->type);
+
+    // define bit width if declaration contains bit width
+    if (tok->type == PUNCT && tok->subtype == COL) {
+        tok = lex(); 
+        if (tok->type != INTCONST && tok->type != UCHAR) {
+            restore_tok(&tok);
+            error(&tok->loc, "expected interger constant expression in struct bit-width specifier");
+        } else 
+            // incorrect, fix later
+            fd->bitsize = tok->val.charval.c;
+    } else 
+        restore_tok(&tok);
+    return fd;
 }
 Node enum_specifier(){
     // enum identifier[opt] { emunerator_list }
@@ -371,26 +424,27 @@ Node init_declarator_list(Type ds){
 Node init_declarator(Type ds){
     // declarator
     // declarator = initializer
-    Node dd = declarator(ds);
+
+    Node dd = make_node(ND_INIT, PERM);
+    dd->sym = declarator(ds, 0);
+    dd->loc = dd->sym->loc;
+    dd->type = dd->sym->type;
     Token tok = lex();
     // function definition
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         restore_tok(&tok);
-        return function_definition(ds, dd);
+        return function_definition(dd->sym);
     }
     if (tok->type == PUNCT && tok->subtype == ASSIGN) {
-        Node init_decl = make_node(ND_INIT, PERM);
-        init_decl->loc = tok->loc;
-        add_child(init_decl, &dd);
+        dd->loc = tok->loc; 
         Node init = initializer();
-        add_child(init_decl, &init);
-        return init_decl;
+        add_child(dd, &init);
+        return dd;
     }
-
     restore_tok(&tok);
     return dd;
 }
-Node declarator(Type ds){
+Symbol declarator(Type ds, _Bool dad){
     // pointer[opt] direct_declarator
     Token tok = lex();
     if (tok->type == PUNCT && tok->subtype == STAR) {
@@ -398,11 +452,11 @@ Node declarator(Type ds){
         ds = pointer(ds);
     } else
         restore_tok(&tok);
-
     // do direct_declarator work
-    return direct_declarator(ds);
+    return direct_declarator(ds, dad);
 }
-Node direct_declarator(Type ds){
+
+Symbol direct_declarator(Type ds, _Bool dad){
     // identifier
     // (declarator)
     // direct_declarator [ type_qualifier_list[opt] assignment_expression[opt] ]
@@ -411,72 +465,65 @@ Node direct_declarator(Type ds){
     // direct_declarator [ type_qualifier_list[opt] * ]
     // direct_declarator ( parameter_type_list )
     // direct_declarator ( identifier_list[opt] )
-
-    Node dd;
-    Token tok = lex();
+    Symbol sym  = alloc(sizeof(symbol), PERM);
+    Token tok = lex(); 
     if (tok->type == ID) {
-        dd = make_node(ND_ID, PERM);
-        dd->val.strval = tok->val.strval;
-        dd->type = ds;
-        dd->loc = tok->loc;
-    } else if (tok->type == PUNCT && tok->subtype == LBRAC){
-        dd = declarator(ds);
-        tok = lex();
+        sym->name = tok->val.strval;
+        sym->loc = tok->loc;
+        dad = 0;
+    } else if (tok->type == PUNCT && tok->subtype == LBRAC) {
+        // since the declarator is enclosed with brackets, don't influence it's type yet
+        sym = declarator(NULL, dad);
+        tok = lex(); 
         if (tok->type != PUNCT || tok->subtype != RBRAC) {
             error(&tok->loc, "missing closing ')' in direct declarator");
             restore_tok(&tok);
         }
+    } else if (dad) {
+        sym->name = dtos(genlabel(1));
+        sym->type = ds;
+        sym->loc = tok->loc;
+        restore_tok(&tok);
+
     } else {
-        dd = make_node(ND_ID, PERM);
-        dd->val.strval = dtos(genlabel(1));
-        dd->type = ds;
-        dd->loc = tok->loc;
+        sym->name = dtos(genlabel(1)); 
+        sym->loc = tok->loc;
         error(&tok->loc, "expected either identifier or '(' in direct declarator");
         restore_tok(&tok);
     }
-
-    while ((tok = lex())->type == PUNCT && (tok->subtype == LSQBRAC || tok->subtype == LBRAC)) {
-
-        if (tok->subtype == LSQBRAC) {
-            // todo array work
-
-            continue;
-        }
-        Node param_list = NULL;
-        tok = lex();
-        if (first(ND_DS, tok)) {
-            restore_tok(&tok);
-            param_list = parameter_type_list();
-            tok = lex();
-        } else {
-            param_list = make_node(ND_PARM_LIST, PERM);
-            param_list->loc = tok->loc;
-            Node param = make_node(ND_PARM, PERM);
-            param->loc = tok->loc;
-            param->type = voidtype;
-            add_child(param_list, &param);
-        }
-        // at this point we should have the mandatory parameter_type_list
-        if (tok->type != PUNCT || tok->subtype != RBRAC) {
-            error(&tok->loc, "missing closing ')' in function declaration");
-            restore_tok(&tok);
-        }
-        // possibly function definition
-        tok = lex();
-        if (tok->type == PUNCT && tok->subtype == LCBRAC) {
-            restore_tok(&tok);
-            return function_definition(dd, param_list);
-        }
-        // not a function definition, must be a function declaration
+    tok = lex(); 
+    // not a function or array declaration
+    if (tok->type != PUNCT || (tok->subtype != LSQBRAC && tok->subtype != LBRAC)) {
         restore_tok(&tok);
-        Node fn_decl = make_node(ND_FUNC_DECL, PERM);
-        add_child(fn_decl, &dd);
-        add_child(fn_decl, &param_list);
-        dd = fn_decl;
+        sym->type = ds;
+        return sym;
     }
-
     restore_tok(&tok);
-    return dd;
+    // extract array / function type 
+    Type decl = func_or_array_decl(ds);
+    if (sym->type == NULL)
+        sym->type = decl;
+    else if (isptr(sym->type)) {
+        if (isqual(sym->type))
+            sym->type = qual(sym->type->id, make_ptr(decl));
+        else 
+            sym->type = make_ptr(decl);
+    } else if (isfunc(sym->type)) {
+        // decl is the return type
+        if (sym->type->type == NULL) {
+            sym->type->type == decl;
+        } else if (isptr(sym->type->type)) {
+            if (isqual(sym->type->type))
+                sym->type->type = qual(sym->type->type->id, make_ptr(decl));
+            else 
+                sym->type->type = make_ptr(decl);
+        } else 
+            // error ?
+            error(&tok->loc, "internal error encountered while building function declaration");
+    } else if (isarray(sym->type)) {
+        
+    }
+    return sym;
 }
 
 Type pointer(Type ds){
@@ -506,24 +553,6 @@ Type pointer(Type ds){
        }
     }
     return ds;
-    /*
-    ds = make_ptr(ds);
-    tok = lex();
-    switch(tok->subtype) {
-        case CONST: case RESTRICT:
-        case VOLATILE: case _ATOMIC:
-            restore_tok(&tok);
-            ds = type_qualifier_list(ds);
-            // don't break, fall through to check recursive case
-        case STAR:
-            restore_tok(&tok);
-            ds = pointer(ds);
-            break;
-        default:
-            restore_tok(&tok);
-            return ds;
-    }
-    */
 }
 Type type_qualifier_list(Type ds){
     // type_qualifier
@@ -550,55 +579,159 @@ Type type_qualifier_list(Type ds){
     }
     return qual(tqmap, ds);
 }
-Node parameter_type_list(){
-    // parameter_list
-    // parameter_list , ...
-    return parameter_list();
+
+Type func_or_array_decl(Type ds) {
+    Token tok = lex(); 
+    if (tok->type == PUNCT && tok->subtype == LSQBRAC) {
+        // get array declaration
+        restore_tok(&tok);
+        Type arr = array_decl(ds);
+        // recursively get subtype
+        Type arr_child = func_or_array_decl(ds);
+        // update array with more precise type and size
+        arr->type = arr_child;
+        arr->size = arr->size * arr_child->size;
+        return arr;
+    }
+    if (tok->type == PUNCT && tok->subtype == LBRAC) {
+        restore_tok(&tok);
+        Vector proto = func_decl();
+        return make_func(ds, proto);
+    }
+    restore_tok(&tok);
+    return ds;
 }
-Node parameter_list(){
+
+Type array_decl(Type ds){
+    // [ type_qualifier_list[opt] assignment_expression[opt] ]
+    // [ static type_qualifier_list[opt] assignment_expression ]
+    // [ type_qualifier_list static assignment_expression ]
+    // [ type_qualifier_list[opt] *]
+    Token tok = lex();
+    if (tok->type != PUNCT || tok->subtype != LSQBRAC) {
+        error(&tok->loc, "expected '[' in array declaration");
+        restore_tok(&tok);
+    }
+    tok = lex();
+    Type arr;
+    // variable length array
+    if (tok->type == PUNCT && tok->subtype == RSQBRAC) {
+        return make_array(ds, 0, 0);
+    } else if (tok->type == INTCONST)
+        arr = make_array(ds, tok->val.intval.u, 0);
+    else  {
+        restore_tok(&tok);
+        // do assignment expression work here
+    }
+    tok = lex();
+    if (tok->type != PUNCT && tok->subtype != RSQBRAC) {
+        error(&tok->loc, "expected ']' in array declaration");
+    }
+    return arr;
+}
+
+Vector func_decl(){
+    // ( parameter_type_list ) 
+    Token tok = lex(); 
+    if (tok->type != PUNCT && tok->subtype != LBRAC) {
+        error(&tok->loc, "expected '(' before function declaration");
+        restore_tok(&tok);
+    }
+    Vector proto;
+    tok = lex(); 
+    // empty parameter list 
+    if (tok->type == PUNCT && tok->subtype == RBRAC) {
+        proto = vec_init(2);
+        Symbol sym = alloc(sizeof(symbol), PERM);
+        sym->name = dtos(genlabel(1));
+        sym->type = voidtype;
+        vec_pushback(proto, sym);
+        vec_pushback(proto, NULL);
+        return proto;
+    }
+    restore_tok(&tok);
+    proto = parameter_list();
+    tok = lex(); 
+    if (tok->type != PUNCT && tok->subtype != RBRAC) {
+        error(&tok->loc, "expected ')' after function declaration");
+        restore_tok(&tok);
+    }
+    return proto;
+}
+
+// returns a Vector of Symbols
+Vector parameter_list() {
     // parameter_declaration
     // parameter_list , parameter_declaration
-    Token tok = lex();
-    Node param_list = make_node(ND_PARM_LIST, PERM);
-    param_list->loc = tok->loc;
-    restore_tok(&tok);
-    Node param = parameter_declaration();
-    param->loc = param_list->loc;
-    add_child(param_list, &param);
-    location l = tok->loc;
+    Token tok;
+    Vector params = vec_init(2);
+    Symbol param = parameter_declaration(); 
+    vec_pushback(params, param);
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
-        tok = lex();
-        l = tok->loc;
+        tok = lex(); 
         if (tok->type == PUNCT && tok->subtype == ELLIPS) {
-            param_list->id = ND_PARM_LIST_VARD;
-            return param_list;
+            Symbol sym = alloc(sizeof(symbol), PERM);
+            sym->name = dtos(genlabel(1));
+            sym->type = voidtype;
+            vec_pushback(params, sym);
+            vec_pushback(params, NULL);
+            return params;
         }
         restore_tok(&tok);
         param = parameter_declaration();
-        param->loc = l;
-        add_child(param_list, &param);
+        vec_pushback(params, param);
     }
     restore_tok(&tok);
-    return param_list;
+    vec_pushback(params, NULL);
+    return params;
 }
-Node parameter_declaration(){
+
+Symbol parameter_declaration() {
     // declaration_specifiers declarator
     // declaration_specifiers abstract_declarator[opt]
     Type ds = declaration_specifiers();
-    Node param;
-    Token tok = lex();
-    // incorrect todo
+    Symbol param; 
+    Token tok = lex(); 
+    // incorrect todo 
     if (first(ND_DECL, tok)) {
         restore_tok(&tok);
-        param = declarator(ds);
+        param = declarator(ds, 1);
     } else {
-        param = make_node(ND_ID, PERM);
-        param->val.strval = dtos(genlabel(1));
+        param = alloc(sizeof(symbol), PERM);
+        param->name = dtos(genlabel(1));
         param->type = ds;
         restore_tok(&tok);
     }
     return param;
 }
+/*
+Symbol parameter_declaration() {
+    // declaration_specifiers declarator
+    // declaration_specifiers abstract_declarator[opt]
+    Type ds = declaration_specifiers();
+    Symbol param; 
+    Token tok = lex(); 
+    if (tok->type == ID) {
+        restore_tok(&tok);
+        param = declarator(ds);
+        return param;
+    }
+    switch(tok->subtype) {
+        case COM: case RBRAC:
+            restore_tok(&tok);
+            param = alloc(sizeof(symbol), PERM); 
+            param->name = dtos(genlabel(1));
+            param->type = ds;
+            break;
+        case STAR: 
+
+        case LBRAC:
+    }
+    return param;
+
+}
+*/
+
 Node identifier_list(){
     // identifier
     // identifier , identifier
@@ -779,7 +912,9 @@ Type build_type(struct dec_spec ds, Type ty) {
         dec_type = make_type(CONST + VOLATILE, NULL, 0, 0, NULL, make_string("const volatile", 14));
     // add type specifier
     Type *t = (dec_type ? &dec_type->type : &dec_type);
-    if (ds.ts == TS_VOID)
+    if (ty) {
+        *t = ty;
+    } else if (ds.ts == TS_VOID)
         *t = voidtype;
     else if ((ds.ts == TS_BOOL) ||
             (ds.ts == TS_SIGNED + TS_BOOL) ||

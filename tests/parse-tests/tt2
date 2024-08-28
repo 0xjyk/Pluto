@@ -1,0 +1,29 @@
+/*
+int arr[5];
+
+int arr[0];
+
+int arr[];
+
+
+int arr1[3][4];
+
+char arr2[2][3][4];
+
+float arr3[5][5][5][5];
+
+
+*/
+
+unsigned int i;
+
+int arr[2];
+
+
+int arr[2][2][3];
+
+
+int (*arr_func())[2][3];
+
+
+double ((*arr_ptr))[3][4];

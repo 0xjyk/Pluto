@@ -50,6 +50,7 @@ Node parse(char *pp_file) {
             restore_tok(&tok);
             child = init_declarator_list(ds);
             child->loc = l; 
+            //child->type = ds;
             add_child(root, &child);
             tok = lex(); 
             if (tok->type != PUNCT || tok->subtype != SCOL)

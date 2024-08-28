@@ -85,8 +85,7 @@ Type struct_or_union_specifier();
 Field struct_declaration_list(Type su);
 Field struct_declaration(Type su);
 Type specifier_qualifier_list();
-Node struct_declarator_list();
-Node struct_declarator();
+Field struct_declarator(Type su, Type sql);
 Node enum_specifier();
 Node enumerator_list();
 Node enumerator();
@@ -96,13 +95,15 @@ int function_specifier(struct dec_spec *ds);
 int alignment_specifier(struct dec_spec *ds);
 Node init_declarator_list(Type ds);
 Node init_declarator(Type ds);
-Node declarator(Type ds);
-Node direct_declarator(Type ds);
+Symbol declarator(Type ds, _Bool dad);
+Symbol direct_declarator(Type ds, _Bool dad);
 Type pointer(Type ds);
 Type type_qualifier_list(Type ds);
-Node parameter_type_list();
-Node parameter_list();
-Node parameter_declaration();
+Type func_or_array_decl(Type ds);
+Type array_decl(Type ds);
+Vector func_decl();
+Vector parameter_list();
+Symbol parameter_declaration();
 Node identifier_list();
 Node type_name();
 Node abstract_declarator();
@@ -130,7 +131,7 @@ Node block_item();
 // external definitions
 Node translation_unit(); // root of the AST
 Node external_declartion();
-Node function_definition();
+Node function_definition(Symbol sym); 
 Node declaration_list();
 
 // helper functions

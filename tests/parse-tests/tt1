@@ -1,0 +1,32 @@
+/*
+int func(int i);
+void func();
+void func(void);
+void func(void v);
+void func(void a, int b, char *c);
+void func(int a, ...);
+int func(int i);
+int (func)(int i);
+int (*func)(int j);
+int f(void), *fip(), (*pfi)(); 
+int *fpfi(int(*id)(long), int);
+int func(int);
+int func(int, char**);
+int (*fpfi(int (*)(long), int))(int, ...);
+void simple_func(int a, char b);
+int* return_ptr_func(float x, double y);
+void variadic_func(int count, ...);
+int complex_func(int (*callback)(void*, int), void* data);
+int (*func_ptr)(int, char);
+void (*signal_handler)(int);
+int (*compare)(const void*, const void*);
+void (*signal(int sig, void (*func)(int)))(int);
+*/
+int (*fun_arr[4])
+
+//int (*(*fun_arr[5])(int, int))[10];
+
+//float (*(*)(int, int, float(*)(int)))(int);
+//int (*(*foo)(void))[3];
+//int (*(*factory)(int))(char*);
+

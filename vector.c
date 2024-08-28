@@ -36,7 +36,7 @@ void vec_resize(Vector vec, size_t size) {
         free(vec->vec);
         vec->vec = NULL; 
     } else {
-        vec->vec = realloc(vec, sizeof(void *) * size);
+        vec->vec = realloc(vec->vec, sizeof(void *) * size);
         assert(vec->vec != NULL);
     }
     // update struc fields

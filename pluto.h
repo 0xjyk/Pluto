@@ -75,6 +75,7 @@ union align {
     int (*f) (void);
 };
 
+
 typedef struct location {
     char *file;
     int x,y; 
@@ -169,12 +170,12 @@ typedef struct type {
     char *strrep;
     unsigned int usignedf:1;
     union {
-        // sym is used for structs, enum, arrays
+        // sym is used for structs, union (enum?, arrays?)
         Symbol sym;
         // function type
         struct {
             // a null terminated array of types
-            Type *proto;
+            Vector proto;
         } f;
     } u;
 } type;
@@ -242,6 +243,7 @@ typedef struct node {
     int id;
     int subid;
     int subsubid;
+    Symbol sym;
     Type type;
     location loc;
     int num_kids;
@@ -267,7 +269,6 @@ typedef struct node {
             // char 16,32 & wc not supported
         } charval; 
         char *strval;
-        Symbol sym;
     } val;
 
 } node;
@@ -398,7 +399,7 @@ int genlabel(int n);
 // types.c
 Type make_type(int id, Type t, int size, int align, void *sym, char *strrep);
 Type make_struct(int id, char *tag, Location l);
-Type make_func(Type t, Type *proto);
+Type make_func(Type t, Vector proto);
 Type make_ptr(Type t);
 Type make_array(Type t, int size, int align);
 Field make_field(char *name, Type t, Type ft);
@@ -408,6 +409,9 @@ void rmtypes(int lev);
 void typeinit();
 void dumptypes();
 char *ttos(Type t);
+char *struct_to_string(Type t);
+char *func_to_string(Type t);
+int variadic(Type t);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))

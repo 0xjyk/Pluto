@@ -15,5 +15,5 @@ Node block_item(){}
 // external definitions
 Node translation_unit(){}
 Node external_declartion(){}
-Node function_definition(){}
+Node function_definition(Symbol sym){}
 Node declaration_list(){}

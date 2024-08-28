@@ -1,0 +1,57 @@
+struct st;
+struct st { int i; } st;
+union u { int i; _Bool b;} u;
+struct st {int i, j, k; } st;
+union u {int i, j, k; } st;
+
+struct {
+    _Bool b;
+    int i;
+} u, uu;
+
+
+struct vector {
+    unsigned int size;
+    unsigned int alloc_size;
+    void **vec;
+} vector;
+
+struct block {
+    struct block *next;
+    char *avail;
+    char *limit;
+};
+
+union align {
+    long l;
+    char *p;
+    double d;
+};
+
+struct location {
+    char *file;
+    int x, y;
+    char nf:1, bf:1;
+
+} l;
+struct dummy {
+    int; 
+    int:1;
+};
+
+struct loc {
+    struct coord {
+        int x, y;
+    } latlong;
+} ll;
+
+const struct color {
+    int id;
+    int hue;
+} c;
+
+const volatile struct {
+    char *cp;
+    char cc;
+};
+

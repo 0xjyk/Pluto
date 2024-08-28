@@ -64,7 +64,7 @@ Type make_type(int id, Type t, int size, int align, void *sym, char *strrep) {
     // first scan the typetable to see if the type already exits
     unsigned int h = (id ^ ((char)(intptr_t)t)) & (TYPE_TAB_SIZE - 1); 
     struct typeentry *tn;
-    if (id != FUNCTION && (id != ARRAY || size > 0)) 
+    if (id != FUNCTION && (id != ARRAY)) 
         for (tn = typetable[h]; tn; tn = tn->next)
             if (tn->type.id == id && tn->type.type == t && tn->type.u.sym == sym
                     && tn->type.size == size && tn->type.align == align) 
@@ -83,65 +83,6 @@ Type make_type(int id, Type t, int size, int align, void *sym, char *strrep) {
     return &e->type;
 }
 
-/*
-char *ttos(Type t) {
-    char *str = alloc(100, PERM);
-    *str = '\0';
-    while (t) {
-        if (isptr(t) && isqual(t)) {
-            strcat(str, ttos(t->type->type));
-            strcat(str, "*");
-            strcat(str, t->strrep);
-            return str;
-        } else if (isptr(t)) {
-            strcat(str, ttos(t->type));
-            strcat(str, "*");
-            return str;
-        } else {
-            strcat(str, t->strrep);
-            strcat(str, " ");
-        }
-        t = t->type;
-    }
-    return str;
-}
-*/
-
-char *ttos(Type t) {
-    char *str = alloc(100, PERM);
-    *str = '\0';
-    _Bool ls = 0;
-    while (t) {
-        if (isptr(t) && isqual(t)) {
-            strcat(str, ttos(t->type));
-            strcat(str, " ");
-            strcat(str, t->strrep);
-            return str;
-        } else if (isptr(t)) {
-            int cnt = 1;
-            while (t->type->id == POINTER) {
-                cnt++; 
-                t = t->type;
-            }
-            strcat(str, ttos(t->type));
-            strcat(str, " ");
-            for (int i = 0; i < cnt; i++) 
-                strcat(str, "*");
-            return str;
-        } else {
-            if (ls)
-                strcat(str, " ");
-            else 
-                ls = 1;
-            strcat(str, t->strrep);
-        }
-        t = t->type;
-    }
-    return str;
-}
-
-
-
 
 void dumptypes() {
     struct typeentry *tn;
@@ -157,7 +98,7 @@ void dumptypes() {
 
 
 Type make_ptr(Type t) {
-    return make_type(POINTER, t, 64, 64, pointersym, make_string("*", 1));
+    return make_type(POINTER, t, 8, 8, pointersym, make_string("*", 1));
 }
 
 
@@ -183,7 +124,8 @@ Type make_array(Type t, int size, int align) {
         error(&loc, "size of array exceeds INT_MAX");
         size = 1;
     }
-    return make_type(ARRAY, t, size * t->size, align ? align : t->align, NULL, make_string("array", 5));
+    // size will be added correctly later
+    return make_type(ARRAY, t, size, align ? align : t->align, NULL, make_string("array", 5));
 }
 
 Type atop(Type t) {
@@ -238,7 +180,7 @@ int isqual(Type t) {
     return 0;
 }
 
-Type make_func(Type t, Type *proto) {
+Type make_func(Type t, Vector proto) {
     if (t && (isarray(t) || isfunc(t)))
         error(&loc, "illegal return type"); 
     t = make_type(FUNCTION, t, 0, 0, NULL, make_string("function", 8));
@@ -255,10 +197,9 @@ Type freturn(Type t) {
 
 int variadic(Type t) {
     if (isfunc(t) && t->u.f.proto) {
-        int i; 
-        for (i = 0; t->u.f.proto[i]; i++)
-            ;
-        return i > 1 && t->u.f.proto[i-1] == voidtype; 
+        int i = t->u.f.proto->size - 2;
+        Symbol last = vec_get(t->u.f.proto, i);
+        return i >= 1 && last && last->type == voidtype;
     }
     return 0;
 }
@@ -276,7 +217,10 @@ Type make_struct(int id, char *tag, Location l) {
             error(&loc, "redefinition of previously defined struct/union");
         }
     p = install(tag, &types, level, PERM);
-    p->type = make_type(id, NULL, 0, 0, p, make_string("struct", 6));
+    if (id == STRUCT) 
+        p->type = make_type(STRUCT, NULL, 0, 0, p, make_string("struct", 6));
+    else 
+        p->type = make_type(UNION, NULL, 0, 0, p, make_string("union", 5));
     if (p->scope > maxlevel)
         maxlevel = p->scope;
     p->loc = *l;
@@ -319,12 +263,12 @@ Type xxinit(int id, Type t, char *strrep, char *name, int size, int align) {
             break;
         case INT: 
             // signed int and signed long 
-            if (ty->size == 32) {
+            if (ty->size == 4) {
                 sym->u.limits.max.i = INT_MAX;
                 sym->u.limits.min.i = INT_MIN;
             }
             // signed long long
-            if (ty->size == 64) {
+            if (ty->size == 8) {
                 sym->u.limits.max.ll = LLONG_MAX; 
                 sym->u.limits.min.ll = LLONG_MIN;
             }
@@ -379,11 +323,11 @@ Type xxinit(int id, Type t, char *strrep, char *name, int size, int align) {
             }
             break;
         case FLOAT:
-            if (ty->size == 32) 
+            if (ty->size == 4) 
                 sym->u.limits.max.f = FLT_MAX;
-            if (ty->size == 64)
+            if (ty->size == 8)
                 sym->u.limits.max.d = DBL_MAX;
-            if (ty->size == 128)
+            if (ty->size == 16)
                 sym->u.limits.max.ld = LDBL_MAX;
             break;
     }
@@ -395,33 +339,33 @@ void typeinit() {
     if (inited)
         return;
     inited = 1;
-    booltype = xxinit(_BOOL, NULL, "_Bool", "_Bool", 8, 8);
+    booltype = xxinit(_BOOL, NULL, "_Bool", "_Bool", 1, 1);
     sbooltype = booltype;
     ubooltype = booltype;
 
-    chartype = xxinit(CHAR, NULL, "char", "char", 8, 8); 
-    schartype = xxinit(SIGNED, chartype, "signed", "signed char", 8, 8);
-    uchartype = xxinit(UNSIGNED, chartype, "unsigned", "unsigned char", 8, 8); 
+    chartype = xxinit(CHAR, NULL, "char", "char", 1, 1); 
+    schartype = xxinit(SIGNED, chartype, "signed", "signed char", 1, 1);
+    uchartype = xxinit(UNSIGNED, chartype, "unsigned", "unsigned char", 1, 1); 
 
-    shorttype = xxinit(SHORT, NULL, "short", "short", 16, 8);
-    sshorttype = xxinit(SIGNED, shorttype, "signed", "signed short", 16, 8);
-    ushorttype = xxinit(UNSIGNED, shorttype, "unsigned", "unsgined short", 16, 8);
+    shorttype = xxinit(SHORT, NULL, "short", "short", 2, 2);
+    sshorttype = xxinit(SIGNED, shorttype, "signed", "signed short", 2, 2);
+    ushorttype = xxinit(UNSIGNED, shorttype, "unsigned", "unsgined short", 2, 2);
     
-    inttype = xxinit(INT, NULL, "int", "int", 32, 8);
-    sinttype = xxinit(SIGNED, inttype, "signed", "signed int", 32, 8);
-    uinttype = xxinit(UNSIGNED, inttype, "unsigned", "unsigned int", 32, 8);
+    inttype = xxinit(INT, NULL, "int", "int", 4, 4);
+    sinttype = xxinit(SIGNED, inttype, "signed", "signed int", 4, 4);
+    uinttype = xxinit(UNSIGNED, inttype, "unsigned", "unsigned int", 4, 4);
     
-    longtype = xxinit(LONG, NULL, "long int", "long int", 32, 8); 
-    slongtype = xxinit(SIGNED, longtype, "signed", "siged long int", 32, 8);
-    ulongtype = xxinit(UNSIGNED, longtype, "unsigned", "unsigned long int", 32, 8);
+    longtype = xxinit(LONG, NULL, "long int", "long int", 4, 4); 
+    slongtype = xxinit(SIGNED, longtype, "signed", "siged long int", 4, 4);
+    ulongtype = xxinit(UNSIGNED, longtype, "unsigned", "unsigned long int", 4, 4);
 
-    longlongtype = xxinit(SLLONG, NULL, "long long int",  "long long int", 64, 8); 
-    slonglongtype = xxinit(SIGNED, longlongtype, "signed", "signed long long int", 64, 8);
-    ulonglongtype =xxinit(UNSIGNED, longlongtype, "unsigned", "unsigned long long int", 64, 8);
+    longlongtype = xxinit(SLLONG, NULL, "long long int",  "long long int", 8, 8); 
+    slonglongtype = xxinit(SIGNED, longlongtype, "signed", "signed long long int", 8, 8);
+    ulonglongtype =xxinit(UNSIGNED, longlongtype, "unsigned", "unsigned long long int", 8, 8);
 
-    floattype = xxinit(FLOAT, NULL, "float", "float", 32, 8); 
-    doubletype = xxinit(SDOUBLE, NULL, "double", "double", 64, 8);
-    longdoubletype = xxinit(LDOUBLE, NULL, "long double", "long double", 128, 8);
+    floattype = xxinit(FLOAT, NULL, "float", "float", 4, 4); 
+    doubletype = xxinit(SDOUBLE, NULL, "double", "double", 8, 8);
+    longdoubletype = xxinit(LDOUBLE, NULL, "long double", "long double", 16, 8);
 
     voidtype = xxinit(VOID, NULL, "void", "void", 0, 0);
 
@@ -459,6 +403,137 @@ void rmtypes(int lev) {
     }
 }
 
+
+char *array_to_string(Type t) {
+    char *str = alloc(200, PERM);
+    *str = '\0';
+    Type tcpy = t;
+    if (isqual(tcpy)) {
+        strcat(str, t->strrep);
+        strcat(str, " ");
+        t = t->type; 
+    }
+    while (isarray(t)) {
+        t = t->type;
+    }
+    // print base type
+    strcat(str, ttos(t));
+    strcat(str, " ");
+    
+    // array braces with size enclosed if available
+    while (isarray(tcpy)) {
+        strcat(str, "[");
+        if (tcpy->size)
+            strcat(str, dtos(tcpy->size));
+        strcat(str, "]");
+        tcpy = tcpy->type;
+    }
+    return str;
+}
+
+char *ttos(Type t) {
+    char *str = alloc(200, PERM);
+    *str = '\0';
+    _Bool ls = 0;
+    while (t) {
+        if (isarray(t)) {
+            return array_to_string(t);
+        } else if (isstructunion(t)) {
+             strcat(str, struct_to_string(t));
+             if (isqual(t)) {
+                t = t->type;
+             }
+        } else if (isfunc(t)) {
+            strcat(str, func_to_string(t));
+            return str; 
+        } else if (isptr(t) && isqual(t)) {
+            strcat(str, ttos(t->type));
+            strcat(str, " ");
+            strcat(str, t->strrep);
+            return str;
+        } else if (isptr(t)) {
+            int cnt = 1;
+            while (t->type && t->type->id == POINTER) {
+                cnt++; 
+                t = t->type;
+            }
+            strcat(str, ttos(t->type));
+            strcat(str, " ");
+            for (int i = 0; i < cnt; i++) 
+                strcat(str, "*");
+            return str;
+        } else {
+            if (ls)
+                strcat(str, " ");
+            else 
+                ls = 1;
+            strcat(str, t->strrep);
+        }
+        t = t->type;
+    }
+    return str;
+}
+
+char *struct_to_string(Type t) {
+    char *str = alloc(200, PERM);
+    *str = '\0';
+    // print type specifier, type qualifier and keyword
+    if (isqual(t)) {
+        strcat(str, t->strrep);  
+        strcat(str, " ");
+        t = t->type;    
+    }
+    strcat(str, t->strrep);
+    strcat(str, " ");
+    strcat(str, t->u.sym->name);
+
+    // print prototype
+    strcat(str, "{");
+    Field fd = t->u.sym->u.s.flist;
+    while (fd) {
+        strcat(str, " ");
+        strcat(str, ttos(fd->type));
+        strcat(str, " ");
+        strcat(str, fd->name);
+        if (fd->bitsize) {
+            strcat(str, ":");
+            strcat(str, dtos(fd->bitsize));
+        }
+        
+        strcat(str, ";");
+        fd = fd->next;
+    }
+    strcat(str, " }");
+    return str;
+}
+
+char *func_to_string(Type t) {
+    char *str = alloc(200, PERM);
+    *str = '\0';
+    // print return type
+    strcat(str, ttos(t->type));
+    
+    // print function prototoype
+    strcat(str, " (");
+    Vector proto = t->u.f.proto;
+    // print first param without space and comma
+    Symbol param = (Symbol) vec_get(proto, 0);
+    strcat(str, ttos(param->type));
+    strcat(str, " ");
+    strcat(str, param->name);
+    int size = variadic(t) ? proto->size - 2 : proto->size - 1;
+    for (int i = 1; i < size; i++) {
+        strcat(str, ", ");
+        param = (Symbol) vec_get(proto, i);
+        strcat(str, ttos(param->type));
+        strcat(str, " ");
+        strcat(str, param->name);
+    }
+    if (variadic(t))
+        strcat(str, ", ...");
+    strcat(str, ")");
+    return str;
+}
 
 
 
