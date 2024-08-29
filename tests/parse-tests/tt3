@@ -1,0 +1,3 @@
+enum color;
+enum color;
+enum cool { blue = 4, olive = 4, ruby = 6, teal = 9};

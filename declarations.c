@@ -141,12 +141,16 @@ int type_specifier(struct dec_spec *ds, Type *t){
             ds->ts |= TQ_ATOMIC; return 1;
         case STRUCT: case UNION:
             if (*t)
-                error(&tok->loc, "type error: attempting to make more than only struct declaration");
+                error(&tok->loc, "type error: attempting to make more than one struct declaration");
             restore_tok(&tok);
             *t = struct_or_union_specifier();
             return 1;
         case ENUM:
-            ds->ts |= TS_ENUM; return 1;
+            if (*t)
+                error(&tok->loc, "type error: attempting to make more than one enum declaration");
+            restore_tok(&tok);
+            *t = enum_specifier();
+            return 1;
     }
     restore_tok(&tok);
     return 0;
@@ -270,7 +274,8 @@ Type specifier_qualifier_list() {
         // exit if not a type specifier or type qualifier
         if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
             (tok->type == PUNCT && (tok->subtype == COL || 
-            tok->subtype == SCOL || tok->subtype == STAR)))
+            tok->subtype == SCOL || tok->subtype == STAR ||
+            tok->subtype == LBRAC)))
             break;
 
         seen == 0;
@@ -321,19 +326,80 @@ Field struct_declarator(Type su, Type sql){
         restore_tok(&tok);
     return fd;
 }
-Node enum_specifier(){
+Type enum_specifier(){
     // enum identifier[opt] { emunerator_list }
     // enum identifier[opt] { enumerator_list , }
     // enum identifier
+    Token tok = lex(); 
+    location l = tok->loc;
+    if (tok->type != KEYWORD && tok->type != ENUM) {
+        restore_tok(&tok);
+        error(&tok->loc, "expected enum keyword in enum declaration");
+    }
+    // extract tag
+    char *tag = make_string("", 0);
+    tok = lex();
+    if (tok->type == ID)
+        tag = tok->val.strval;
+    else {
+        restore_tok(&tok);
+        tag = dtos(genlabel(1));
+    }
+    Type enm = make_struct(ENUM, tag, &l);
+    tok = lex();
+    if (tok->type == PUNCT && tok->subtype == LCBRAC) {
+        enumerator_list(enm);
+        if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
+            error(&tok->loc, "expected '}' at the end of a struct declaration");
+            restore_tok(&tok);
+        }
+    } else
+        restore_tok(&tok);
+    return enm;
 }
-Node enumerator_list(){
+void enumerator_list(Type enm){
     // enumerator
     // enumerator_list , enumerator
+    Token tok; 
+    int member_val = 0;
+    do {
+        member_val = enumerator(enm, member_val);
+    } while ((tok = lex())->subtype == COM);
+    restore_tok(&tok);
 }
-Node enumerator(){
+int enumerator(Type enm, int member_val){
     // enumeration_constant
     // enumeration_constant = constant_expression
+    Token tok = lex(); 
+    char *emem = make_string("", 0);
+    // enumeration_constant
+    if (tok->type != ID) {
+        restore_tok(&tok);
+        emem = dtos(genlabel(1));
+        error(&tok->loc, "expected an identifier as enum member");
+    } else 
+        emem = tok->val.strval;
+
+    if ((tok = lex())->subtype != ASSIGN) {
+        restore_tok(&tok);
+        // assign value and add to table
+        Symbol sym = install(emem, &identifiers, level, PERM);
+        sym->u.c.v.i = member_val;
+        return ++member_val;
+    }
+    // constant expression 
+    if ((tok = lex())->type != INTCONST) {
+        restore_tok(&tok);
+        error(&tok->loc, "expected integer constant in rval of enum assignment");
+    } else 
+        member_val = tok->val.intval.i;
+    // assign value and add to table 
+    Symbol sym = install(emem, &identifiers, level, PERM);
+    sym->u.c.v.i = member_val;
+    return ++member_val;
 }
+
+
 Node atomic_type_specifier(){
     // _Atomic ( type_name )
 }
@@ -464,7 +530,7 @@ Symbol direct_declarator(Type ds, _Bool dad){
     // direct_declarator [ type_qualifier_list static assignment_expression ]
     // direct_declarator [ type_qualifier_list[opt] * ]
     // direct_declarator ( parameter_type_list )
-    // direct_declarator ( identifier_list[opt] )
+    // direct_declarator ( identifier_list[opt] ) * K&R style function declarations aren't supported *
     Symbol sym  = alloc(sizeof(symbol), PERM);
     Token tok = lex(); 
     if (tok->type == ID) {
@@ -481,7 +547,7 @@ Symbol direct_declarator(Type ds, _Bool dad){
         }
     } else if (dad) {
         sym->name = dtos(genlabel(1));
-        sym->type = ds;
+        //sym->type = ds;
         sym->loc = tok->loc;
         restore_tok(&tok);
 
@@ -491,39 +557,56 @@ Symbol direct_declarator(Type ds, _Bool dad){
         error(&tok->loc, "expected either identifier or '(' in direct declarator");
         restore_tok(&tok);
     }
+    
+    // retrieve the optional function or array declarator
     tok = lex(); 
-    // not a function or array declaration
-    if (tok->type != PUNCT || (tok->subtype != LSQBRAC && tok->subtype != LBRAC)) {
+    Type decl = ds;
+    if (tok->type == PUNCT && (tok->subtype == LBRAC || tok->subtype == LSQBRAC)) {
         restore_tok(&tok);
-        sym->type = ds;
+        decl = func_or_array_decl(ds);
+    } else 
+        restore_tok(&tok);
+    tok = lex();
+    // if this declaration was a nested declaration, don't try to update the type just yet
+    if (tok->type == PUNCT && tok->subtype == RBRAC) {
+        restore_tok(&tok);
+        if (sym->type && (isptr(sym->type) || 
+                isfunc(sym->type) || isarray(sym->type))) {
+            Type t = sym->type;
+            while (t->type && t->type != nulltype) {
+                if (is_basetype(t->type)) {
+                    return sym;
+                }
+                t = t->type;
+            }
+            t->type = decl;
+        } else 
+            sym->type = decl;
         return sym;
     }
-    restore_tok(&tok);
-    // extract array / function type 
-    Type decl = func_or_array_decl(ds);
-    if (sym->type == NULL)
-        sym->type = decl;
-    else if (isptr(sym->type)) {
-        if (isqual(sym->type))
-            sym->type = qual(sym->type->id, make_ptr(decl));
-        else 
-            sym->type = make_ptr(decl);
-    } else if (isfunc(sym->type)) {
-        // decl is the return type
-        if (sym->type->type == NULL) {
-            sym->type->type == decl;
-        } else if (isptr(sym->type->type)) {
-            if (isqual(sym->type->type))
-                sym->type->type = qual(sym->type->type->id, make_ptr(decl));
-            else 
-                sym->type->type = make_ptr(decl);
+    // not a function or array declaration
+    if (tok->type == PUNCT && (tok->subtype == COM || tok->subtype == SCOL || tok->subtype == COL)) {
+        restore_tok(&tok);
+        if (sym->type && (isptr(sym->type) 
+            || isfunc(sym->type) || isarray(sym->type))) {
+            Type t = sym->type;
+            while (t->type && t->type != nulltype) {
+                // type was known, no updation needed
+                if (is_basetype(t->type)) {
+                    return sym;
+                }
+                t = t->type;
+            }                
+            t->type = decl;
+
         } else 
-            // error ?
-            error(&tok->loc, "internal error encountered while building function declaration");
-    } else if (isarray(sym->type)) {
-        
+            sym->type = decl;
+    } else {
+        // else error?
+        error(&tok->loc, "internal error, fix!!");
+        restore_tok(&tok);
     }
-    return sym;
+    return sym; 
 }
 
 Type pointer(Type ds){
@@ -581,6 +664,8 @@ Type type_qualifier_list(Type ds){
 }
 
 Type func_or_array_decl(Type ds) {
+    if (!ds)
+        ds = nulltype;
     Token tok = lex(); 
     if (tok->type == PUNCT && tok->subtype == LSQBRAC) {
         // get array declaration
@@ -590,7 +675,10 @@ Type func_or_array_decl(Type ds) {
         Type arr_child = func_or_array_decl(ds);
         // update array with more precise type and size
         arr->type = arr_child;
-        arr->size = arr->size * arr_child->size;
+        if (isqual(arr_child) && arr_child->type) 
+            arr->size = arr->size * (arr_child->type->size);
+        else 
+            arr->size = arr->size * arr_child->size;
         return arr;
     }
     if (tok->type == PUNCT && tok->subtype == LBRAC) {

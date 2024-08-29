@@ -142,4 +142,7 @@ KEY(_ALIGNAS, 172, "_Alignas")
 KEY(INLINE, 173, "inline")
 KEY(_NORETURN, 174, "_Noreturn")
 
+// implementation defined type
+TOKEN(NULLT, 174, "null")
+
 

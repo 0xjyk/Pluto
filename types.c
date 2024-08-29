@@ -37,6 +37,7 @@ Type doubletype;    // double
 Type longdoubletype;// long double
 
 Type voidtype;      // void 
+Type nulltype;      // null
 
 Type voidptype;     // void *
 Type charptype;     // char *
@@ -64,7 +65,7 @@ Type make_type(int id, Type t, int size, int align, void *sym, char *strrep) {
     // first scan the typetable to see if the type already exits
     unsigned int h = (id ^ ((char)(intptr_t)t)) & (TYPE_TAB_SIZE - 1); 
     struct typeentry *tn;
-    if (id != FUNCTION && (id != ARRAY)) 
+    if (id != FUNCTION && (id != ARRAY) && id!= POINTER) 
         for (tn = typetable[h]; tn; tn = tn->next)
             if (tn->type.id == id && tn->type.type == t && tn->type.u.sym == sym
                     && tn->type.size == size && tn->type.align == align) 
@@ -219,8 +220,11 @@ Type make_struct(int id, char *tag, Location l) {
     p = install(tag, &types, level, PERM);
     if (id == STRUCT) 
         p->type = make_type(STRUCT, NULL, 0, 0, p, make_string("struct", 6));
-    else 
+    else if (id == UNION)
         p->type = make_type(UNION, NULL, 0, 0, p, make_string("union", 5));
+    else 
+        p->type = make_type(ENUM, NULL, sinttype->size, 
+                sinttype->align, p, make_string("enum", 4));
     if (p->scope > maxlevel)
         maxlevel = p->scope;
     p->loc = *l;
@@ -368,6 +372,7 @@ void typeinit() {
     longdoubletype = xxinit(LDOUBLE, NULL, "long double", "long double", 16, 8);
 
     voidtype = xxinit(VOID, NULL, "void", "void", 0, 0);
+    nulltype = xxinit(NULLT, NULL, "null", "null", 1, 1);
 
     pointersym = install(make_string("*", 2), &types, GLOBAL, PERM); 
     pointersym->u.limits.max.p = (void *) ULLONG_MAX;
@@ -402,6 +407,12 @@ void rmtypes(int lev) {
         }
     }
 }
+
+_Bool is_basetype(Type t) {
+    t = unqual(t);
+    return isarray(t) || isstructunion(t) || isarith(t) || (t->id == VOID);
+}
+
 
 
 char *array_to_string(Type t) {

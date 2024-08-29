@@ -1,3 +1,4 @@
+/*
 struct st;
 struct st { int i; } st;
 union u { int i; _Bool b;} u;
@@ -27,7 +28,6 @@ union align {
     char *p;
     double d;
 };
-
 struct location {
     char *file;
     int x, y;
@@ -54,4 +54,215 @@ const volatile struct {
     char *cp;
     char cc;
 };
+*/
+struct Calculator {
+    int (*add)(int, int);
+    int (*subtract)(int, int);
+    float (*divide)(float, float);
+};
 
+struct PackedData {
+    unsigned int flag1 : 1;
+    unsigned int flag2 : 1;
+    unsigned int count : 6;
+};
+
+struct Item {
+    int type;
+    union {
+        int integer_value;
+        float float_value;
+        char string_value[20];
+    } data;
+};
+
+
+struct Address {
+    char street[50];
+    char city[30];
+    int zipcode;
+};
+
+struct Person {
+    char name[100];
+    int age;
+    struct Address home_address;
+    struct Address work_address;
+};
+
+
+struct Student {
+    char name[50];
+    int id;
+    float grades[5];
+    struct Student *next;
+};
+
+struct ComplexData {
+    int type;
+    union {
+        int i;
+        float f;
+        char c;
+    } data;
+    int (*compare)(const void*, const void*);
+    struct ComplexData *left;
+    struct ComplexData *right;
+};
+
+struct PackedInfo {
+    unsigned int flags : 4;
+    unsigned int mode : 3;
+    unsigned int : 0;  // padding
+    struct {
+        unsigned char r;
+        unsigned char g;
+        unsigned char b;
+    };  // anonymous struct
+    void *data;
+    int (*process)(void*);
+};
+
+struct DynamicArray {
+    unsigned int size;
+    int (*operations[4])(int, int);
+    struct {
+        char type;
+        void *ptr;
+    } metadata;
+    int data[];  // flexible array member
+};
+
+
+struct Matrix {
+    int rows;
+    int cols;
+    double **data;
+};
+
+struct ComplicatedObject {
+    char name[32];
+    struct Matrix *matrix_ptr;
+    int (*transform)(struct Matrix*, int);
+    union {
+        long long int_val;
+        double float_val;
+    } value;
+    char tags[10][20];
+    struct ComplicatedObject *related[5];
+};
+
+struct ComplexData {
+    struct {
+        int (*process)(void*, unsigned int);
+        void* (*allocate)(unsigned int);
+        void (*deallocate)(void*);
+    } operations;
+    union {
+        struct {
+            double coordinates[3];
+            float rotation[4];
+        } spatial;
+        struct {
+            unsigned char rgb[3];
+            float opacity;
+        } color;
+    } properties;
+    int (*compare)(const struct ComplexData*, const struct ComplexData*);
+};
+
+struct DataProcessor {
+    int data[5][10][15];
+    struct {
+        int (*filter[3])(int*, unsigned int);
+        float (*transform)(int (*)(int), int*, unsigned int);
+    } algorithms;
+    union {
+        long (*hash)(void*, unsigned int);
+        int (*compress)(const char*, char*, unsigned int);
+    } utility;
+    struct DataProcessor* (*create_child)(const struct DataProcessor*);
+};
+
+
+struct NetworkPacket {
+    unsigned int version : 4;
+    unsigned int flags : 4;
+    unsigned int protocol : 8;
+    unsigned int checksum : 16;
+    union {
+        struct {
+            unsigned char source_ip[4];
+            unsigned char dest_ip[4];
+        } ipv4;
+        struct {
+            unsigned char source_ip[16];
+            unsigned char dest_ip[16];
+        } ipv6;
+    } addressing;
+    struct {
+        void* (*encode)(const struct NetworkPacket*, unsigned int*);
+        struct NetworkPacket* (*decode)(const void*, unsigned int*);
+    } codec;
+    struct NetworkPacket* next;
+    struct NetworkPacket* (*fragment)(const struct NetworkPacket*, unsigned int);
+};
+
+struct AIModel {
+    double weights[1000][1000];
+    struct {
+        double (*activation[5])(double);
+        struct {
+            double (*forward)(const double*, unsigned int, const double*, unsigned int);
+            double (*backward)(double*, unsigned int, const double*, unsigned int);
+        } propagation;
+    } layers[10];
+    union {
+        struct {
+            float learning_rate;
+            int epochs;
+        } gradient_descent;
+        struct {
+            float momentum;
+            float initial_velocity[1000];
+        } adam;
+    } optimizer;
+    struct AIModel* (*clone)(const struct AIModel*);
+    double (*evaluate)(const struct AIModel*, const double*, unsigned int);
+};
+
+struct CompilerModule {
+    struct {
+        char* (*tokenize)(const char*);
+        struct {
+            int (*precedence)(const char*);
+            char* (*infix_to_postfix)(const char*);
+        } expression;
+        struct ASTNode {
+            union {
+                double value;
+                char operator;
+                struct {
+                    char* name;
+                    struct ASTNode** arguments;
+                    unsigned int arg_count;
+                } function;
+            } data;
+            struct ASTNode* left;
+            struct ASTNode* right;
+        } *(*parse)(const char*);
+    } frontend;
+    struct {
+        void* (*allocate)(unsigned int);
+        void (*deallocate)(void*);
+        struct {
+            void* (*constant_folding)(struct ASTNode*);
+            void* (*dead_code_elimination)(void*);
+        } optimizations;
+    } middleend;
+    struct {
+        unsigned char* (*generate)(const void*, unsigned int*);
+        int (**(*get_intrinsics)(const char*))(void);
+    } backend;
+    struct CompilerModule* (*create_submodule)(const struct CompilerModule*);
+};

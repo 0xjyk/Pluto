@@ -207,6 +207,9 @@ typedef struct symbol {
             Field flist;
         } s;
         struct {
+            Vector enmconsts;
+        } e;
+        struct {
             constantval v; 
             Symbol s;
         } c;
@@ -330,6 +333,7 @@ extern Type doubletype;    // double
 extern Type longdoubletype;// long double
 
 extern Type voidtype;      // void
+extern Type nulltype;      // null
 
 extern Type voidptype;     // void *
 extern Type charptype;     // char *
@@ -411,6 +415,7 @@ void dumptypes();
 char *ttos(Type t);
 char *struct_to_string(Type t);
 char *func_to_string(Type t);
+_Bool is_basetype(Type t);
 int variadic(Type t);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
@@ -428,7 +433,7 @@ int variadic(Type t);
 #define isint(t)            (unqual(t)->id >= CHAR \
                             && (t)->id <= UNSIGNED)
 #define isarith(t)          (unqual(t)->id >= CHAR \
-                            && (t)->id <= DOUBLE
+                            && (t)->id <= DOUBLE)
 #define isunsigned(t)       (unqual(t)->id == UNSIGNED)
 #define isdouble(t)         (unqual(t)->id >= FLOAT \
                             || unqual(t)->id <= DOUBlE)
