@@ -37,10 +37,11 @@ Node parse(char *pp_file) {
         Node decl;
         // declaration without optional init_declarator_list
         if (tok->type == PUNCT && tok->subtype == SCOL) {
-            child = make_node(ND_ID, PERM);
+            // no declarator provided, iterpretted as a type declaration
+            child = make_node(ND_TYPE_DECL, PERM);
             child->loc = l;
             child->type = ds;
-            child->val.strval = dtos(genlabel(1));
+            //child->val.strval = dtos(genlabel(1));
             add_child(root, &child);
             continue;
         
@@ -140,7 +141,7 @@ void print_node(Node n, int indent) {
     switch (n->id) {
     case ND_ROOT:
         printf("%s \n", node_map[ND_ROOT - 256]); break;
-    case ND_ID: case ND_STR:
+    case ND_ID: case ND_STR: case ND_DECL:
         printf("|-- %s \"%s\" [type: %s] <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->val.strval, ttos(n->type), n->loc.y, n->loc.x);
         break;

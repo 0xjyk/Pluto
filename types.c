@@ -499,8 +499,13 @@ char *struct_to_string(Type t) {
     strcat(str, t->u.sym->name);
 
     // print prototype
-    strcat(str, "{");
+
     Field fd = t->u.sym->u.s.flist;
+    _Bool print_body = 0;
+    if (fd)
+        print_body = 1;
+    if (print_body)
+        strcat(str, "{");
     while (fd) {
         strcat(str, " ");
         strcat(str, ttos(fd->type));
@@ -514,7 +519,8 @@ char *struct_to_string(Type t) {
         strcat(str, ";");
         fd = fd->next;
     }
-    strcat(str, " }");
+    if (print_body)
+        strcat(str, " }");
     return str;
 }
 

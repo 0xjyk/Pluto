@@ -466,17 +466,22 @@ int alignment_specifier(struct dec_spec *ds){
 Node init_declarator_list(Type ds){
     // init_declarator
     // init_declarator_list, init_declarator
-
+    
+    // retrieve the first declaration
     Node init_decl = init_declarator(ds);
+    // don't check for more if it turns out to be a function definition
     if (init_decl->id == ND_FUNC_DEF)
         return init_decl;
     Token tok = lex();
+    // exit early if there is no indication of more declaraions
     if (tok->type != PUNCT || tok->subtype != COM) {
         restore_tok(&tok);
         return init_decl;
     }
     restore_tok(&tok);
-    Node init_decl_list = make_node(ND_INIT_LIST, PERM);
+    
+    // group multiple declarations under a list declaration
+    Node init_decl_list = make_node(ND_DECL_LIST, PERM);
     add_child(init_decl_list, &init_decl);
     init_decl_list->loc = init_decl->loc;
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
@@ -491,16 +496,19 @@ Node init_declarator(Type ds){
     // declarator
     // declarator = initializer
 
-    Node dd = make_node(ND_INIT, PERM);
+    Node dd = make_node(ND_DECL, PERM);
+    // retrieve declaration
     dd->sym = declarator(ds, 0);
     dd->loc = dd->sym->loc;
     dd->type = dd->sym->type;
+    dd->val.strval = dd->sym->name;
     Token tok = lex();
-    // function definition
+    // a declarator could be followed my a definition (violates the grammar a little)
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         restore_tok(&tok);
         return function_definition(dd->sym);
     }
+    // optional assignment gets added to ND_DECL as a child if present
     if (tok->type == PUNCT && tok->subtype == ASSIGN) {
         dd->loc = tok->loc; 
         Node init = initializer();
@@ -513,6 +521,7 @@ Node init_declarator(Type ds){
 Symbol declarator(Type ds, _Bool dad){
     // pointer[opt] direct_declarator
     Token tok = lex();
+    // capture optional pointer and update ds
     if (tok->type == PUNCT && tok->subtype == STAR) {
         restore_tok(&tok);
         ds = pointer(ds);
@@ -522,6 +531,7 @@ Symbol declarator(Type ds, _Bool dad){
     return direct_declarator(ds, dad);
 }
 
+// this function should probably be rewritten - too brittle!
 Symbol direct_declarator(Type ds, _Bool dad){
     // identifier
     // (declarator)
@@ -585,7 +595,8 @@ Symbol direct_declarator(Type ds, _Bool dad){
         return sym;
     }
     // not a function or array declaration
-    if (tok->type == PUNCT && (tok->subtype == COM || tok->subtype == SCOL || tok->subtype == COL)) {
+    if (tok->type == PUNCT && (tok->subtype == COM || tok->subtype == SCOL 
+                || tok->subtype == COL || tok->subtype == ASSIGN)) {
         restore_tok(&tok);
         if (sym->type && (isptr(sym->type) 
             || isfunc(sym->type) || isarray(sym->type))) {
@@ -845,8 +856,12 @@ Node initializer(){
     // { initializer_list , }
     Token tok = lex();
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
-        restore_tok(&tok);
-        return initializer_list();
+        Node init_list = initializer_list();
+        if ((tok = lex())->subtype != RCBRAC) {
+            restore_tok(&tok);
+            error(&tok->loc, "expected closing '}' after declaration initializer list");
+        }
+        return init_list;
     }
     restore_tok(&tok);
     return assignment_expression();
@@ -881,7 +896,8 @@ Node initializer_list_helper() {
         restore_tok(&tok);
         Node desig = designation();
         add_child(init, &desig);
-    }
+    } else 
+        restore_tok(&tok);
     Node init_child = initializer();
     add_child(init, &init_child);
     return init;
@@ -890,9 +906,8 @@ Node designation(){
     // designator_list =
     Node desig_list = designator_list();
     Token tok = lex();
-    if (tok->type != PUNCT || tok->type != ASSIGN) {
+    if (tok->subtype != ASSIGN) {
         error(&tok->loc, "expected '=' sign after designator list in initializer");
-        restore_tok(&tok);
     }
     return desig_list;
 }
@@ -901,9 +916,9 @@ Node designator_list(){
     // designator_list designator
     Node desig_list = make_node(ND_DESIG_LIST, PERM);
     Node desig = designator();
+    desig_list->loc = desig->loc;
     add_child(desig_list, &desig);
     Token tok = lex();
-    desig_list->loc = tok->loc;
     while (tok->type = PUNCT && (tok->subtype == LSQBRAC || tok->subtype == DOT)) {
         restore_tok(&tok);
         desig = designator();
@@ -923,13 +938,13 @@ Node designator(){
         Node const_expr = constant_expression();
         add_child(sel, &const_expr);
         tok = lex();
-        if (tok->type != PUNCT || tok->type != RSQBRAC) {
+        if (tok->subtype != RSQBRAC) {
             error(&tok->loc, "expected closing ']' in  designator");
-            restore_tok(&tok);
         }
         return sel;
     }
-    if (tok->type != PUNCT || tok->subtype != DOT) {
+    if (tok->subtype != DOT) {
+        restore_tok(&tok);
         error(&tok->loc, "expected designator in designator list");
     }
     Node dot = make_node(ND_DOT, PERM);
@@ -939,6 +954,8 @@ Node designator(){
     if (tok->type != ID) {
         error(&tok->loc, "expected identifier after '.' in designator");
         id->val.strval = dtos(genlabel(1));
+        id->loc = tok->loc;
+        add_child(dot, &id);
         restore_tok(&tok);
         return dot;
     }
