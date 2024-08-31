@@ -1,0 +1,25 @@
+int n;
+int j = n + j + 'c';
+
+char *str = "hello";
+char *strcpy = str;
+char **strp = &str;
+
+int i = _Generic(str,
+    char: 'c', 
+    long double: 5.3,
+    float: 23.99,
+    char **: str,
+    default: 1);
+
+int func(void);
+int incr = func();
+
+struct location {
+    int x;
+    int y;
+} loc = {.x = 1, .y = 2};
+
+int x = loc.x;
+struct location *locp = &loc;
+int locx = locp->x;

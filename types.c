@@ -38,6 +38,7 @@ Type longdoubletype;// long double
 
 Type voidtype;      // void 
 Type nulltype;      // null
+Type defaulttype;   // default
 
 Type voidptype;     // void *
 Type charptype;     // char *
@@ -250,7 +251,7 @@ Field make_field(char *name, Type t, Type ft) {
 
 Type xxinit(int id, Type t, char *strrep, char *name, int size, int align) {
     Symbol sym = install(make_string(name, strlen(name)), &types, GLOBAL, PERM);
-    Type ty = make_type(id, t, size, align, sym, make_string(strrep, strlen(name))); 
+    Type ty = make_type(id, t, size, align, sym, make_string(strrep, strlen(strrep))); 
     sym->type = ty;
     switch(ty->id) {
         case _BOOL:
@@ -353,7 +354,7 @@ void typeinit() {
 
     shorttype = xxinit(SHORT, NULL, "short", "short", 2, 2);
     sshorttype = xxinit(SIGNED, shorttype, "signed", "signed short", 2, 2);
-    ushorttype = xxinit(UNSIGNED, shorttype, "unsigned", "unsgined short", 2, 2);
+    ushorttype = xxinit(UNSIGNED, shorttype, "unsigned", "unsigned short", 2, 2);
     
     inttype = xxinit(INT, NULL, "int", "int", 4, 4);
     sinttype = xxinit(SIGNED, inttype, "signed", "signed int", 4, 4);
@@ -373,8 +374,9 @@ void typeinit() {
 
     voidtype = xxinit(VOID, NULL, "void", "void", 0, 0);
     nulltype = xxinit(NULLT, NULL, "null", "null", 1, 1);
+    defaulttype = xxinit(DEFAULT, NULL, "default", "default", 0, 0);
 
-    pointersym = install(make_string("*", 2), &types, GLOBAL, PERM); 
+    pointersym = install(make_string("*", 1), &types, GLOBAL, PERM); 
     pointersym->u.limits.max.p = (void *) ULLONG_MAX;
     pointersym->u.limits.min.p = 0;
 
@@ -502,12 +504,16 @@ char *struct_to_string(Type t) {
 
     Field fd = t->u.sym->u.s.flist;
     _Bool print_body = 0;
+    _Bool ls = 0;
     if (fd)
         print_body = 1;
     if (print_body)
         strcat(str, "{");
     while (fd) {
-        strcat(str, " ");
+        if (!ls) 
+            ls = 1;
+        else
+            strcat(str, " ");
         strcat(str, ttos(fd->type));
         strcat(str, " ");
         strcat(str, fd->name);
@@ -520,7 +526,7 @@ char *struct_to_string(Type t) {
         fd = fd->next;
     }
     if (print_body)
-        strcat(str, " }");
+        strcat(str, "}");
     return str;
 }
 

@@ -168,7 +168,6 @@ void print_node(Node n, int indent) {
         }
         break;
     case ND_EXPR:       break;
-    case ND_GENERIC:    break; 
     case ND_SAD: 
         printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                 n->loc.y, n->loc.x);
@@ -261,7 +260,7 @@ void escape_first(int till) {
 
 _Bool first(int id, Token tok) {
     switch(id) {
-        case ND_DS:
+        case ND_DS: 
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _NORETURN) || 
                     (tok->type == ID && lookup(tok->val.strval, types)))
                     return 1;
@@ -269,6 +268,33 @@ _Bool first(int id, Token tok) {
         case ND_DECL:
             if (tok->type == ID || (tok->type == PUNCT && (tok->subtype == STAR || tok->subtype == LBRAC)))
                 return 1;
+        case ND_TYPENAME:
+            if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _ATOMIC) || 
+                    (tok->type == ID && lookup(tok->val.strval, types)))
+                    return 1;
+        case ND_UNARY:
+            switch (tok->type) {
+                case ID: case STR: case UCHAR: case INTCONST: case ERROR:
+                    return 1;
+                case PUNCT: 
+                    switch(tok->subtype) {
+                        case LBRAC: case LCBRAC: case INCR: case DECR: case BAND: 
+                        case STAR: case PLUS: case NEG: case BNOT: case NOT:
+                            return 1;
+                        default: 
+                            return 0;
+                    }
+                case KEYWORD:
+                    switch(tok->subtype) {
+                        case SIZEOF: case _ALIGNOF: case _GENERIC:
+                            return 1;
+                        default:
+                            return 0;
+                    }
+                default: 
+                    return 0;
+
+            }
         default:
             break;
     }

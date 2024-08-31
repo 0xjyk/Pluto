@@ -1,0 +1,40 @@
+# 1 "tests/parse-tests/tt1"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 31 "<command-line>"
+# 1 "/usr/include/stdc-predef.h" 1 3 4
+# 32 "<command-line>" 2
+# 1 "tests/parse-tests/tt1"
+int func(int i);
+void func();
+void func(void);
+void func(void v);
+void func(void a, int b, char *c);
+void func(int a, ...);
+int func(int i);
+int (func)(int i);
+int (*func)(int j);
+int f(void), *fip(), (*pfi)();
+int *fpfi(int(*id)(long), int);
+int func(int);
+int func(int, char**);
+void simple_func(int a, char b);
+int* return_ptr_func(float x, double y);
+void variadic_func(int count, ...);
+int complex_func(int (*callback)(void*, int), void* data);
+int (*func_ptr)(int, char);
+void (*signal_handler)(int);
+int (*compare)(const void*, const void*);
+int (*signal(int sig, void (*func)(int)));
+void (*signal(int sig, void (*func)(int)))(int);
+int (*fun_arr[4]);
+int (*callback)(void*, int);
+int (*const fun_arr[4]);
+int (fun_arr[4]);
+int (*(*foo)(void))[3];
+int (*(*factory)(int))(char*);
+
+float (*(*id)(int, int, float(*)(int)))(int);
+int (*fpfi(int (*)(long), int))(int, ...);
+
+int (*(*fun_arr[5])(int, int))[10];

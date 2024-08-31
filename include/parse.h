@@ -46,6 +46,7 @@ struct dec_spec {
     unsigned int tq:3;
     // function specifier
     unsigned int fs:2;
+    unsigned int align_hint;
     // typedef name: TODO
 };
 
@@ -58,6 +59,7 @@ Node generic_selection();
 Node generic_assoc_list();
 Node generic_association();
 Node postfix_expression();
+Type type_cast();
 Node argument_expression_list();
 Node unary_expression();
 Node cast_expression();
@@ -105,7 +107,7 @@ Vector func_decl();
 Vector parameter_list();
 Symbol parameter_declaration();
 Node identifier_list();
-Node type_name();
+Type type_name();
 Node abstract_declarator();
 Node direct_abstract_declarator();
 Node initializer();

@@ -1,0 +1,8 @@
+/*
+int i = sizeof (unsigned int);
+int i = sizeof ++1;
+struct temp {int x;} t = sizeof (int) {.x = 2};
+*/
+
+int _Alignas(char) i;
+

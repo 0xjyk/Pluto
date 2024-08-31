@@ -10,11 +10,13 @@ static struct string {
 
 
 // djb2, a simple hash function by dan bernstein
-int hash(unsigned char *str, int num_buckets) {
+int hash(unsigned char *str, int slen, int num_buckets) {
     unsigned long hash = 5381;
     int c;
-    while (c = *str++)
+    while (slen && (c = *str++)) {
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+        slen--;
+    }
     // ensure hash is between 0-NUM_BUCKETS
     hash &= (num_buckets - 1);
     return hash;
@@ -22,7 +24,7 @@ int hash(unsigned char *str, int num_buckets) {
 
 char *make_string(char *str, int len) {
     // hash str to get the appropriate bucket
-    struct string **strlist = &buckets[hash(str, NUM_BUCKETS)];
+    struct string **strlist = &buckets[hash(str, len, NUM_BUCKETS)];
     struct string *s = *strlist;
 
     // if string already in string pool, return existing string
@@ -78,7 +80,7 @@ void dump_stringpool() {
         if (s) {
             fprintf(stdout, "Bucket [%d]\n", i); 
             while (s) {
-                fprintf(stdout, "> \"%s\"\n", s->str);
+                fprintf(stdout, "> [%p]\"%s\"\n", s->str, s->str);
                 s = s->next;
             }
         }

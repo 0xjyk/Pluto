@@ -1,0 +1,75 @@
+struct point {
+    int x;
+    int y; 
+} p = (struct point) {1, 2};
+
+int x = (int) {1};
+
+
+struct Point {
+    int x;
+    int y;
+};
+
+struct Point *p = &(struct Point){10, 20};
+int *arr = (int[]){1, 2, 3, 4, 5};
+
+struct Rectangle {
+    struct Point top_left;
+    struct Point bottom_right;
+};
+
+struct Rectangle *r = &(struct Rectangle){
+    .bottom_right = {15, 25},
+    .top_left = {5, 10}
+};
+
+struct Point points[] = {
+    (struct Point){0, 0},
+    (struct Point){1, 1},
+    (struct Point){2, 2}
+};
+
+struct Line {
+    struct Point start;
+    struct Point end;
+};
+
+struct Line *line = &(struct Line){
+    (struct Point){0, 0},
+    (struct Point){10, 10}
+};
+
+struct Student {
+    char name[20];
+    int grades[3];
+};
+
+struct Student *s = &(struct Student){
+    "Alice",
+    {90, 85, 88}
+};
+
+
+struct Buffer {
+    int size;
+    char data[];
+};
+
+struct Buffer *buf = (struct Buffer[]){
+    {5, {'H', 'e', 'l', 'l', 'o'}}
+};
+
+struct Course {
+    char name[30];
+    struct Student students[2];
+};
+
+struct Course *course = &(struct Course){
+    "C Programming",
+    {
+        {"Bob", {78, 80, 75}},
+        {"Alice", {90, 85, 88}}
+    }
+};
+

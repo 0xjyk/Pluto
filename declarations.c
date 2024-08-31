@@ -12,7 +12,7 @@ Type declaration_specifiers(){
     // used if declaration is a struct, union or typdefed identifier
     Type t = NULL;
     // collect all specifiers
-    struct dec_spec ds = {.scs = 0, .ts = 0, .tq = 0, .fs = 0};
+    struct dec_spec ds = {.scs = 0, .ts = 0, .tq = 0, .fs = 0, .align_hint = 0};
     int seen = 1;
         while (seen) {
             tok = lex();
@@ -175,13 +175,28 @@ Type struct_or_union_specifier(){
     // If tag wasn't defined and struct declaration list wasn't defined either, error
     if (!*tag) {
         tag = dtos(genlabel(1));
-        if (((tok = lex())->type != PUNCT || tok->subtype != LCBRAC)) {
+        if ((tok = lex())->subtype != LCBRAC) {
+            restore_tok(&tok);
             error(&tok->loc, "expected struct declaration list in struct/union declaration");
             // error recovery work - return dummy struct/union
             return make_struct(id, tag, &loc);
         }
         restore_tok(&tok);
+    } else {
+        // tag was defined and struct isn't being defined, 
+        // lookup and return previously defined tag
+        if ((tok = lex())->subtype != LCBRAC) {
+            restore_tok(&tok);
+            Symbol sym = lookup(tag, types);
+            if (!sym) {
+                error(&l, "declared struct/union type doesn't correspond to any previously defined type");
+                return make_struct(id, dtos(genlabel(1)), &l);
+            }
+            return sym->type;
+        }
+        restore_tok(&tok);
     }
+
     
     su = make_struct(id, tag, &loc);
     tok = lex();
@@ -275,7 +290,8 @@ Type specifier_qualifier_list() {
         if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
             (tok->type == PUNCT && (tok->subtype == COL || 
             tok->subtype == SCOL || tok->subtype == STAR ||
-            tok->subtype == LBRAC)))
+            tok->subtype == LBRAC || tok->subtype == RBRAC ||
+            tok->subtype == LSQBRAC)))
             break;
 
         seen == 0;
@@ -448,18 +464,36 @@ int alignment_specifier(struct dec_spec *ds){
     // _Alignas ( type_name )
     // _Alignas ( constant_expression )
     Token tok = lex();
-    if (tok->type != KEYWORD) {
+    if (tok->subtype != _ALIGNAS) {
         restore_tok(&tok);
         return 0;
     }
-    // TODO issue error messages on violation
-    switch(tok->subtype) {
-        case _ALIGNAS:
-            // TODO
-            return 1;
+    if ((tok = lex())->subtype != LBRAC) {
+        restore_tok(&tok);
+        error(&tok->loc, "exptected opening '(' after alignment specifier");
+        return 1;
+    } 
+    // type_name
+    tok = lex();
+    if (first(ND_TYPENAME, tok)) {
+        restore_tok(&tok);
+        Type t = type_name();
+        if (t) 
+            ds->align_hint = unqual(t)->align;
+    } else {
+        restore_tok(&tok);
+        // constant_expression, resolve to int const
+        Node const_expr = constant_expression();
+        ds->align_hint = solve_constexpr(const_expr);
     }
-    restore_tok(&tok);
-    return 0;
+    if (!ds->align_hint) {
+        error(&tok->loc, "unable to determine alignment form alignment specifier");
+    }
+    if ((tok = lex())->subtype != RBRAC) {
+        restore_tok(&tok);
+        error(&tok->loc, "expected closing ')' after alignment specifier");
+    }
+    return 1;
 }
 
 
@@ -497,14 +531,18 @@ Node init_declarator(Type ds){
     // declarator = initializer
 
     Node dd = make_node(ND_DECL, PERM);
-    // retrieve declaration
-    dd->sym = declarator(ds, 0);
-    dd->loc = dd->sym->loc;
-    dd->type = dd->sym->type;
-    dd->val.strval = dd->sym->name;
+    // retrieve declaration and install as a global - little wasteful due to lack of foresight
+    Symbol sym = declarator(ds, 0);
+    dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
+    dd->sym->loc = sym->loc;
+    dd->sym->type = sym->type;
+    dd->loc = sym->loc; 
+    dd->type = sym->type;
+    dd->val.strval = sym->name;
     Token tok = lex();
     // a declarator could be followed my a definition (violates the grammar a little)
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
+        // needs updation todo - type mismatch
         restore_tok(&tok);
         return function_definition(dd->sym);
     }
@@ -803,40 +841,14 @@ Symbol parameter_declaration() {
     }
     return param;
 }
-/*
-Symbol parameter_declaration() {
-    // declaration_specifiers declarator
-    // declaration_specifiers abstract_declarator[opt]
-    Type ds = declaration_specifiers();
-    Symbol param; 
-    Token tok = lex(); 
-    if (tok->type == ID) {
-        restore_tok(&tok);
-        param = declarator(ds);
-        return param;
-    }
-    switch(tok->subtype) {
-        case COM: case RBRAC:
-            restore_tok(&tok);
-            param = alloc(sizeof(symbol), PERM); 
-            param->name = dtos(genlabel(1));
-            param->type = ds;
-            break;
-        case STAR: 
-
-        case LBRAC:
-    }
-    return param;
-
-}
-*/
 
 Node identifier_list(){
     // identifier
     // identifier , identifier
 }
-Node type_name(){
+Type type_name(){
     // specifier_qualifier_list abstract_declarator[opt]
+    return declarator(specifier_qualifier_list(), 1)->type;
 }
 Node abstract_declarator(){
     // pointer
@@ -1008,7 +1020,7 @@ Type build_type(struct dec_spec ds, Type ty) {
     Type dec_type = NULL;
     // add type qualifiers, if specified
     if (ds.tq & TQ_ATOMIC)
-       dec_type = make_type(_ATOMIC, NULL, 0, 0, NULL, make_string("_Atomic", 6));
+       dec_type = make_type(_ATOMIC, NULL, 0, 0, NULL, make_string("_Atomic", 7));
     else if (ds.tq == TQ_CONST)
         dec_type = make_type(CONST, NULL, 0, 0, NULL, make_string("const", 5));
     else if (ds.tq == TQ_VOLATILE)

@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
             lexdriver((char *)vec_get(ppfiles, i));  
         } else if (JOBSCOPE == PARSE) {
             Node root = parse((char *)vec_get(ppfiles, i));
+            //dump_stringpool();
             dump_AST(root, 0);
         } else if (JOBSCOPE == TYPECHECK) {
             printf("requested l, p, t\n");
@@ -44,7 +45,10 @@ int main(int argc, char *argv[]) {
         } else {
             printf("requested l, p, t, c\n"); 
         }
+        if (num_errors) 
+            printf("\n%d error(s) encountered\n", num_errors);
     }
+    
     exit(EXIT_SUCCESS);
 }
 

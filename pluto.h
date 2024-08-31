@@ -334,6 +334,7 @@ extern Type longdoubletype;// long double
 
 extern Type voidtype;      // void
 extern Type nulltype;      // null
+extern Type defaulttype;   // default
 
 extern Type voidptype;     // void *
 extern Type charptype;     // char *
@@ -368,7 +369,7 @@ void dealloc(int an);
 char *strloc(char *str, int sz, int an);
 
 // string.c 
-int hash(unsigned char *str, int num_buckets); 
+int hash(unsigned char *str,int slen, int num_buckets); 
 char *make_string(char *str, int len);
 char *dtos(int n);
 void dump_stringpool();
@@ -442,6 +443,9 @@ int variadic(Type t);
 #define isenum(t)           (unqual(t)->id == ENUM)
 #define isstructunion(t)     (unqual(t)->id == STRUCT \
                             || unqual(t)->id == UNION)
+
+// typecheck.c
+int solve_constexpr(Node const_expr);
 
 
 #endif

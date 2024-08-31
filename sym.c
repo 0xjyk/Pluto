@@ -88,11 +88,11 @@ Symbol install(char *name, Table *tb, unsigned int lev, int an) {
     struct entry *e = alloc(sizeof(struct entry), an);
     e->sym.name = name;
     e->sym.scope = lev;
-    e->sym.loc = loc;
+    //e->sym.loc = loc;
     e->sym.prev = tbcpy->all;
     // type and sclass to be filled externally by client
     // add to hash table (prepend in hash bucket)
-    int h = hash(name, TAB_HASH_SIZE);
+    int h = hash(name, strlen(name), TAB_HASH_SIZE);
     e->next = tbcpy->buckets[h];
     tbcpy->buckets[h] = e;
     return &(e->sym);
@@ -104,7 +104,7 @@ Symbol install(char *name, Table *tb, unsigned int lev, int an) {
     
 Symbol lookup(char *name, Table tb) {
     struct entry *e;
-    int h = hash(name, TAB_HASH_SIZE);
+    int h = hash(name,strlen(name), TAB_HASH_SIZE);
     while (tb) {
         // go through the hash chain to look for name 
         e = tb->buckets[h]; 

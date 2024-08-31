@@ -15,6 +15,17 @@ Node primary_expression(){
         case ID:
             nd = make_node(ND_ID, PERM);
             nd->val.strval = tok->val.strval;
+            // assign type based on enclosing declaration 
+            Symbol sym = lookup(nd->val.strval, identifiers);
+            if (!sym) {
+                error(&tok->loc, "usage of identifier before declaration");
+                nd->id = ND_CONST;
+                nd->type = sinttype;
+                nd->val.intval.i = 1;
+            } else {
+                nd->type = sym->type;
+                nd->sym = sym;
+            }
             nd->loc = tok->loc;
             return nd;
         case UCHAR:
@@ -106,26 +117,6 @@ Node primary_expression(){
             }
             restore_tok(&tok);
             return generic_selection();
-
-            /*
-            if ((tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
-                error(&(tok->loc), "expected '(' before generic expression");
-            }
-            nd = make_node(ND_GENERIC, PERM);
-            {Node assign_expr = assignment_expression();
-             add_child(nd, &assign_expr);}
-            if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
-                error(&(tok->loc), "expected ',' between the asssignment expression and \
-                        generic association list");
-            }
-            {Node gen_list = generic_assoc_list();
-             add_child(nd, &gen_list);}
-            if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
-                error(&(tok->loc), "expected ')' after generic expression");
-                while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
-            }
-            return nd;
-            */
         case ERROR:
             restore_tok(&tok);
             nd = make_error_recovery_node();
@@ -140,51 +131,66 @@ Node generic_selection(){
     if (tok->type != KEYWORD || tok->subtype != _GENERIC) {
         error(&(tok->loc), "expected _Generic keywords before generic expression");
     }
-    if ((tok = lex())->type != PUNCT || tok->subtype != LBRAC) {
+    if ((tok = lex())->subtype != LBRAC) {
         error(&(tok->loc), "expected '(' before generic expression");
         escape_first(ND_ASSIGNEXPR);
     }
     Node gen = make_node(ND_GENERIC, PERM);
     Node assign_expr = assignment_expression();
     add_child(gen, &assign_expr);
-    if ((tok = lex())->type != PUNCT || tok->subtype != COM) {
+    if ((tok = lex())->subtype != COM) {
         error(&(tok->loc), "expected ',' between the asssignment expression and \
                 generic association list");
         // TODO: add escape_first(gen_assoc_list);
     }
     Node gal = generic_assoc_list();
     add_child(gen, &gal);
-    if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
+    if ((tok = lex())->subtype != RBRAC) {
         error(&(tok->loc), "expected ')' after generic expression");
-        while ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {};
+        while ((tok = lex())->subtype != RBRAC) {};
     }
     return gen;
 }
 Node generic_assoc_list(){
     // generic_association
     // generic_assoc_list , generic_association
-    Node gen_assoc = generic_association();
-    Token tok = lex();
-    if (tok->type != PUNCT || tok->subtype != COM) {
-        restore_tok(&tok);
-        return gen_assoc;
-    }
-    restore_tok(&tok);
     Node gen_ls = make_node(ND_GENLS, PERM);
-    add_child(gen_ls, &gen_assoc);
-    gen_ls->loc = gen_assoc->loc;
-    while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
-        gen_assoc = generic_association();
+    Token tok;
+    do {
+        Node gen_assoc = generic_association();
         add_child(gen_ls, &gen_assoc);
-    }
+        if (gen_ls->num_kids == 1) 
+            gen_ls->loc = gen_assoc->loc;
+
+    } while ((tok = lex())->subtype == COM);
     restore_tok(&tok);
+    if (!gen_ls->kids) {
+        error(&tok->loc, "expected atleast one generic association statement in generic expression");
+    }
     return gen_ls;
 }
 Node generic_association(){
     // type_name : assignment_expression
     // default : assignment_expression
-
-   }
+    Token tok = lex(); 
+    Node gen_assoc = make_node(ND_GEN_ASSOC, PERM);
+    gen_assoc->loc = tok->loc;
+    // extract type
+    gen_assoc->type = defaulttype;
+    if (tok->subtype != DEFAULT) {
+        restore_tok(&tok);
+        gen_assoc->type = type_name();
+    } 
+    tok = lex(); 
+    if (tok->subtype != COL) {
+        restore_tok(&tok); 
+        error(&tok->loc, "exprected ':' before assignment expression in generic expression");
+    }
+    // extract assignment
+    Node assign_expr = assignment_expression();
+    add_child(gen_assoc, &assign_expr);
+    return gen_assoc;
+}
 
 Node postfix_expression(){
     // primary_expression
@@ -194,24 +200,61 @@ Node postfix_expression(){
     // postfix_expression -> identifier
     // postfix_expression ++
     // postfix_expression --
-    // ( type_name ) { initializer_list }
-    // ( type_name ) { initializer_list , }
+    // ( type_name ) { initializer_list }   * (type_name ) would have already been extracted by cast_expreesion *
+    // ( type_name ) { initializer_list , } * (type_name ) would have already been extracted by cast_expreesion *
     Token tok = lex();
     Node pf_root;
-
-    // do (type_name) work here : TODO also need to ensure that type-name is followed
-    /*
-    if (tok->type == PUNCT && tok->subtype == LBRAC) {
-
-        pf_root = make_node(ND_INIT, PERM);
-    return pf_root;
+    if (tok->subtype == LCBRAC) {
+        pf_root = make_node(ND_COMP_LIT, PERM);
+        Node init_list = initializer_list();
+        add_child(pf_root, &init_list);
+        if ((tok = lex())->subtype != RCBRAC) {
+                error(&tok->loc, "expected closing '}' after initializer list in compound literal");
+                restore_tok(&tok);
+        }
+    } else {
+        restore_tok(&tok);
+        pf_root = primary_expression();
     }
-    */
 
-    // first parse primary expression
-    restore_tok(&tok);
-    pf_root = primary_expression();
 
+/*
+
+    // could be either a compound literal or ( expression )
+    if (tok->subtype == LBRAC) {
+        Token tokcpy = tok;
+        tok = lex(); 
+        if (!first(ND_TYPENAME, tok)) {
+            // restore in order of retrieval
+            restore_tok(&tokcpy);
+            restore_tok(&tok);
+            pf_root = primary_expression();
+        } else {
+            // type_name
+            pf_root = make_node(ND_COMP_LIT, PERM);
+            restore_tok(&tok);
+            pf_root->type = type_name();
+            if ((tok = lex())->subtype != RBRAC) {
+                restore_tok(&tok);
+                error(&tok->loc, "expected closing ')' after type name in compound literal");
+            }
+            // { initializer_list }
+            if ((tok = lex())->subtype != LCBRAC) {
+                error(&tok->loc, "expected opening '(' before initializer list in compound literal");
+                restore_tok(&tok);
+            } 
+            Node init_list = initializer_list();
+            if ((tok = lex())->subtype != RCBRAC) {
+                error(&tok->loc, "expected closing '}' after initializer list in compound literal");
+                restore_tok(&tok);
+            }
+            add_child(pf_root, &init_list);
+        }
+    } else {
+        restore_tok(&tok);
+        pf_root = primary_expression();
+    }
+*/
     while (1) {
         tok = lex();
         if (tok->type != PUNCT) {
@@ -304,6 +347,33 @@ Node postfix_expression(){
     }
     return pf_root;
 }
+
+Type type_cast() {
+    // ( type_name )
+    Token tok = lex();
+    Type tc = NULL;
+    // could be either a compound literal or ( expression )
+    if (tok->subtype == LBRAC) {
+        Token tokcpy = tok;
+        tok = lex(); 
+        if (!first(ND_TYPENAME, tok)) {
+            // restore in order of retrieval
+            restore_tok(&tokcpy);
+            restore_tok(&tok);
+        } else {
+            // type_name
+            restore_tok(&tok);
+            tc = type_name();
+            if ((tok = lex())->subtype != RBRAC) {
+                restore_tok(&tok);
+                error(&tok->loc, "expected closing ')' after type name in compound literal");
+            }
+        }
+    } else
+        restore_tok(&tok);
+    return tc;
+}
+
 Node argument_expression_list(){
     // assignment_expression
     // argument_expression_list , assignment_expression
@@ -345,7 +415,7 @@ Node unary_expression(){
             nd->loc = tok->loc;
             Node temp;
             switch (tok->subtype) {
-                case LBRAC:
+                case LBRAC: case LCBRAC:
                     restore_tok(&tok);
                     return postfix_expression();
                 case INCR:
@@ -388,25 +458,59 @@ Node unary_expression(){
                     temp = cast_expression();
                     add_child(nd, &temp);
                     return nd;
-                    // error ?
+                default:
+                    error(&tok->loc, "unknown unaray expression");
+                    // escape till FOLLOW(unary_expression)
+                    nd->id = ND_CONST;
+                    nd->subid = ND_INT;
+                    nd->type = sinttype;
+                    return nd;
 
             }
         case KEYWORD:
             switch (tok->subtype) {
                 case SIZEOF:
-                    // two possible options - ambiguity
+                    nd = make_node(ND_SIZEOF, PERM);
+                    nd->loc = tok->loc;
+                    Type tc = type_cast(); 
+                    if (tc)
+                        nd->type = tc;
+                    tok = lex();
+                    if (first(ND_UNARY, tok)) {
+                        restore_tok(&tok);
+                        temp = unary_expression();
+                        add_child(nd, &temp);
+                    } else 
+                        restore_tok(&tok);
+                    return nd;
 
                 case _ALIGNOF:
-
-
+                    nd = make_node(ND_ALIGNOF, PERM);
+                    nd->loc = tok->loc;
+                    nd->type = type_cast();
+                    if (!nd->type) {
+                        nd->type = sinttype;
+                        error(&tok->loc, "expected '(' type name ')' after _Alignof operator");
+                    }
+                    return nd; 
                 case _GENERIC:
                     restore_tok(&tok);
                     return postfix_expression();
-                    // error
-
+                default:
+                    error(&tok->loc, "unknown unaray expression");
+                    // escape till FOLLOW(unary_expression)
+                    nd->id = ND_CONST;
+                    nd->subid = ND_INT;
+                    nd->type = sinttype;
+                    return nd;
             }
-        // error
-
+        default:
+            error(&tok->loc, "unknown unaray expression");
+            // escape till FOLLOW(unary_expression)
+            nd->id = ND_CONST;
+            nd->subid = ND_INT;
+            nd->type = sinttype;
+            return nd;
     }
 
 }
@@ -414,11 +518,18 @@ Node cast_expression(){
     // unary_expression
     // ( type_name ) cast_expression
     Token tok = lex();
+    Type tc = NULL;
     if (tok->type == PUNCT && tok->subtype == LBRAC) {
         // process type-name ..
-
-    }
-    restore_tok(&tok);
+        restore_tok(&tok);
+        tc = type_cast();
+        if (tc) {
+            Node ce = cast_expression();
+            ce->type = tc;
+            return ce;
+        }   
+    } else 
+        restore_tok(&tok);
     // unary_expression
     return unary_expression();
 }
