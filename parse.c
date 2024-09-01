@@ -47,14 +47,14 @@ Node parse(char *pp_file) {
         
         // FIRST(declarator) - '*', identifier, '('
         } else if ((tok->type == PUNCT && (tok->subtype == STAR ||
-                        tok->subtype == LBRAC)) || tok->subtype == ID) {
+                        tok->subtype == LBRAC)) || tok->type == ID) {
             restore_tok(&tok);
             child = init_declarator_list(ds);
             child->loc = l; 
             //child->type = ds;
             add_child(root, &child);
             tok = lex(); 
-            if (tok->type != PUNCT || tok->subtype != SCOL)
+            if (child->id != ND_FUNC_DEF && (tok->type != PUNCT || tok->subtype != SCOL))
                 error(&tok->loc, "expected ';' after declaration");
             continue;
         } else {
@@ -262,20 +262,23 @@ _Bool first(int id, Token tok) {
     switch(id) {
         case ND_DS: 
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _NORETURN) || 
-                    (tok->type == ID && lookup(tok->val.strval, types)))
+                    (tok->type == ID && typedef_name(tok)))
                     return 1;
             break;
         case ND_DECL:
             if (tok->type == ID || (tok->type == PUNCT && (tok->subtype == STAR || tok->subtype == LBRAC)))
                 return 1;
+            break;
         case ND_TYPENAME:
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _ATOMIC) || 
                     (tok->type == ID && lookup(tok->val.strval, types)))
                     return 1;
-        case ND_UNARY:
+            break;
+        case ND_UNARY: case ND_EXPR:
             switch (tok->type) {
                 case ID: case STR: case UCHAR: case INTCONST: case ERROR:
                     return 1;
+                    break;
                 case PUNCT: 
                     switch(tok->subtype) {
                         case LBRAC: case LCBRAC: case INCR: case DECR: case BAND: 

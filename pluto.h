@@ -36,7 +36,6 @@
 /*
     forward declarations
 */
-
 struct vector;
 struct block;
 struct location;
@@ -159,8 +158,6 @@ typedef union constantval {
     void *p;
 } constantval;
 
-
-
 typedef struct type *Type;
 typedef struct type {
     int id;
@@ -184,6 +181,7 @@ typedef struct field *Field;
 typedef struct field {
     char *name; 
     Type type;
+    char sclass:6;
     int offset; 
     short bitsize;
     Field next;
@@ -196,7 +194,7 @@ typedef struct symbol {
     location loc;
     Symbol prev;
     Type type;
-    int sclass;
+    char sclass:6;
     unsigned int temporary:1;
     unsigned int generated:1;
     unsigned int defined:1;
@@ -299,7 +297,7 @@ extern Table constants;
 extern Table external;
 extern Table globals;
 extern Table identifiers;
-extern Table lables;
+extern Table labels;
 // TODO: types
 extern Table types;
 extern unsigned int level;

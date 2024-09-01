@@ -17,11 +17,11 @@ struct Rectangle rect = {{0, 0}, {5, 5}};
 
 struct Point points[] = {{1, 2}, {3, 4}, {5, 6}};
 
+*/
 struct Person {
     char name[20];
     int age;
 };
-*/
 struct Person person = {.age = 30, .name = "John"};
 int arr3[5] = {[2] = 20, [4] = 40, 50};
 
@@ -62,5 +62,7 @@ union Data {
     char str[20];
 };
 union Data data = {.str = "Hello"};
+
+const struct date { int x, y, z; };
 
 

@@ -80,6 +80,7 @@ Node constant_expression();
 Node enumeration_constant();
 
 // declarations.c
+Node declaration();
 Type declaration_specifiers();
 int storage_class_specifier(struct dec_spec *ds);
 int type_specifier(struct dec_spec *ds, Type *t);
@@ -95,6 +96,7 @@ Node atomic_type_specifier();
 int type_qualifier(struct dec_spec *ds);
 int function_specifier(struct dec_spec *ds);
 int alignment_specifier(struct dec_spec *ds);
+Type typedef_name(Token tok);
 Node init_declarator_list(Type ds);
 Node init_declarator(Type ds);
 Symbol declarator(Type ds, _Bool dad);
@@ -117,6 +119,8 @@ Node designation();
 Node designator_list();
 Node designator();
 Node static_assert_declaration();
+void process_scs(Symbol sym);
+void merge_type(Type typ, struct dec_spec *ds, Type *t);
 Type build_type(struct dec_spec ds, Type ty);
 
 // statements
@@ -127,14 +131,9 @@ Node expression_statement();
 Node selection_statement();
 Node iteration_statement();
 Node jump_statement();
-Node block_item_list();
-Node block_item();
 
 // external definitions
-Node translation_unit(); // root of the AST
-Node external_declartion();
 Node function_definition(Symbol sym); 
-Node declaration_list();
 
 // helper functions
 void print_cpp();

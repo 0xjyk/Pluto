@@ -800,6 +800,23 @@ Token is_keyword() {
             }
             break;
         case 'c':
+            if (buflen >= 9) {
+                if (!strncmp(s, "continue", 8) && 
+                    !(map[s[8]] & (DIGIT|LETTER))) {
+                    token tok = {.type=KEYWORD, .subtype=CONTINUE, .len=8, .loc = loc};
+                    tok.val.strval = make_string(buf.curr, 8);
+                    return make_token(tok);
+                }
+            } 
+            if (buflen >= 6) {
+                if (!strncmp(s, "const", 5) &&
+                    !(map[s[5]] & (DIGIT|LETTER))) {
+                    token tok = {.type=KEYWORD, .subtype=CONST, .len=5, .loc = loc};
+                    tok.val.strval = make_string(buf.curr, 5);
+                    return make_token(tok);
+                }
+            }
+
             if (buflen >= 5) {
                 if (!strncmp(s, "case", 4) &&
                     !(map[s[4]] & (DIGIT|LETTER))) {
@@ -811,14 +828,6 @@ Token is_keyword() {
                     !(map[s[4]] & (DIGIT|LETTER))) {
                     token tok = {.type=KEYWORD, .subtype=CHAR, .len=4, .loc = loc};
                     tok.val.strval = make_string(buf.curr, 4);
-                    return make_token(tok);
-                }
-            }
-            if (buflen >= 6) {
-                if (!strncmp(s, "const", 5) &&
-                    !(map[s[5]] & (DIGIT|LETTER))) {
-                    token tok = {.type=KEYWORD, .subtype=CONST, .len=5, .loc = loc};
-                    tok.val.strval = make_string(buf.curr, 5);
                     return make_token(tok);
                 }
             }

@@ -34,7 +34,7 @@ Table external = &ext;
 Table globals = &glb;
 Table identifiers = &idn;
 Table types = &typ;
-Table lables;
+Table labels;
 
 /*
     appends a new table with level = lev

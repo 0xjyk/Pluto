@@ -1,0 +1,21 @@
+void func(int i, char c) {
+    int j = i + c;
+    continue;
+    break;
+    goto func;
+    return "nothing";
+    typedef unsigned int size_t;
+    size_t lm;
+    switch (i) {
+        int l;
+    }
+    if (i == i) {
+        switch(i) {
+            int l, m,n;
+        }
+        return i;
+    } else {
+
+        return 'c';
+    }
+}

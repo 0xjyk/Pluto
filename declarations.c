@@ -1,7 +1,50 @@
 #include "pluto.h"
 #include "include/parse.h"
 
+char scs;
+
 // declarations
+Node declaration() {
+    // declaration_specifiers init_declarator_list[opt]; 
+    // static_assert_declaration
+    Token tok = lex();
+    Node decl;
+    if (tok->subtype == _STATIC_ASSERT) {
+        restore_tok(&tok);
+        decl = static_assert_declaration();
+        return decl;
+    }
+    location l = tok->loc;
+    restore_tok(&tok); 
+    Type ds = declaration_specifiers();
+    // declaration without optional init_declartor_list
+    tok = lex();
+    if (tok->subtype == SCOL) {
+        decl = make_node(ND_TYPE_DECL, PERM);
+        decl->loc = l;
+        decl->type = ds;
+        return decl;
+    } else if (tok->subtype == STAR || tok->subtype == LBRAC || tok->type == ID) {
+        restore_tok(&tok); 
+        decl = init_declarator_list(ds);
+        decl->loc = l;
+        tok = lex(); 
+        if (tok->subtype != SCOL) {
+            restore_tok(&tok);
+            error(&tok->loc, "expected ';' after declaration");
+        }
+        return decl;
+    }
+        
+    error(&tok->loc, "expected declarator after declaration specifiers(s)");
+    // return dummy decl
+    decl = make_node(ND_TYPE_DECL, PERM);
+    decl->loc = l;
+    decl->type = sinttype;
+    return decl;
+}
+
+
 Type declaration_specifiers(){
     // storage_class_specifiers declarations_specifiers[opt]
     // type_specifiers declarations_specifiers[opt]
@@ -15,12 +58,12 @@ Type declaration_specifiers(){
     struct dec_spec ds = {.scs = 0, .ts = 0, .tq = 0, .fs = 0, .align_hint = 0};
     int seen = 1;
         while (seen) {
-            tok = lex();
-            // exit loop if FIRST(declarator) or ';'
+            tok = lex(); // exit loop if FIRST(declarator) or ';'
             if ((tok->type == PUNCT && (tok->subtype == SCOL
                 || tok->subtype == LBRAC || tok->subtype == STAR ||
                 tok->subtype == COM || tok->subtype == RBRAC)) ||
-                (tok->type == ID && !lookup(tok->val.strval, types)))
+                (tok->type == ID && !typedef_name(tok)))
+                //(tok->type == ID && !lookup(tok->val.strval, types)))
                 break;
             seen = 0;
             restore_tok(&tok);
@@ -63,18 +106,19 @@ int storage_class_specifier(struct dec_spec *ds){
     }
     // TODO issue error message on violation
     switch (tok->subtype) {
+        // thread_local and register are ignored
         case TYPEDEF:
-            ds->scs |= SCS_TYPEDEF; return 1;
+            ds->scs |= SCS_TYPEDEF; scs |= SCS_TYPEDEF; return 1;
         case EXTERN:
-            ds->scs |= SCS_EXTERN; return 1;
+            ds->scs |= SCS_EXTERN; scs |= SCS_EXTERN; return 1;
         case STATIC:
-            ds->scs |= SCS_STATIC; return 1;
+            ds->scs |= SCS_STATIC; scs |= SCS_STATIC; return 1;
         case _THREAD_LOCAL:
-            ds->scs |= SCS_THREAD_LOCAL; return 1;
+            return 1;
         case AUTO:
-            ds->scs |= SCS_AUTO; return 1;
+            ds->scs |= SCS_AUTO; scs |= SCS_AUTO; return 1;
         case REGISTER:
-            ds->scs |= SCS_REGISTER; return 1;
+            return 1;
     }
     restore_tok(&tok);
     return 0;
@@ -92,7 +136,18 @@ int type_specifier(struct dec_spec *ds, Type *t){
         return 0;
     }
 
-    // typdef name
+    // typdef_name - consume a previously typedefed type
+    if (tok->type == ID) {
+        Type typ = typedef_name(tok);
+        if (!typ) {
+            error(&tok->loc, "type error: identifier doesn't correspond to any valid type");
+            typ = sinttype;
+            return 1;
+        }
+        merge_type(typ, ds, t);
+        return 1;
+    }
+    /*
     if (tok->type == ID) {
         if (*t) {
             error(&tok->loc, "type error: attempting to declare multiple type specifiers");
@@ -106,6 +161,7 @@ int type_specifier(struct dec_spec *ds, Type *t){
             *t = sym->type;
         return 1;
     }
+    */
     // TODO issue error message on violation
     switch (tok->subtype) {
         case VOID:
@@ -287,7 +343,8 @@ Type specifier_qualifier_list() {
     while (seen) {
         tok = lex(); 
         // exit if not a type specifier or type qualifier
-        if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
+        if ((tok->type == ID && !typedef_name(tok)) ||
+        //if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
             (tok->type == PUNCT && (tok->subtype == COL || 
             tok->subtype == SCOL || tok->subtype == STAR ||
             tok->subtype == LBRAC || tok->subtype == RBRAC ||
@@ -496,6 +553,15 @@ int alignment_specifier(struct dec_spec *ds){
     return 1;
 }
 
+Type typedef_name(Token tok) {
+    if (tok->type != ID)
+        return NULL;
+    Symbol sym = lookup(tok->val.strval, identifiers);
+    if (!sym || sym->sclass != SCS_TYPEDEF)
+        return NULL;
+    return sym->type;
+}
+
 
 Node init_declarator_list(Type ds){
     // init_declarator
@@ -510,6 +576,7 @@ Node init_declarator_list(Type ds){
     // exit early if there is no indication of more declaraions
     if (tok->type != PUNCT || tok->subtype != COM) {
         restore_tok(&tok);
+        scs = 0;
         return init_decl;
     }
     restore_tok(&tok);
@@ -523,6 +590,8 @@ Node init_declarator_list(Type ds){
         add_child(init_decl_list, &init_decl);
     }
     restore_tok(&tok);
+    // clear off any scs defined in ds and applicable to this list
+    scs = 0;
     return init_decl_list;
 }
 
@@ -533,9 +602,11 @@ Node init_declarator(Type ds){
     Node dd = make_node(ND_DECL, PERM);
     // retrieve declaration and install as a global - little wasteful due to lack of foresight
     Symbol sym = declarator(ds, 0);
-    dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
+    dd->sym = install(sym->name, &identifiers, level, level < LOCAL ? PERM : level);
+    //dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
     dd->sym->loc = sym->loc;
     dd->sym->type = sym->type;
+    dd->sym->sclass = sym->sclass;
     dd->loc = sym->loc; 
     dd->type = sym->type;
     dd->val.strval = sym->name;
@@ -566,7 +637,11 @@ Symbol declarator(Type ds, _Bool dad){
     } else
         restore_tok(&tok);
     // do direct_declarator work
-    return direct_declarator(ds, dad);
+    Symbol sym = direct_declarator(ds, dad);
+    if (scs) {
+        process_scs(sym);
+    }
+    return sym;
 }
 
 // this function should probably be rewritten - too brittle!
@@ -634,7 +709,8 @@ Symbol direct_declarator(Type ds, _Bool dad){
     }
     // not a function or array declaration
     if (tok->type == PUNCT && (tok->subtype == COM || tok->subtype == SCOL 
-                || tok->subtype == COL || tok->subtype == ASSIGN)) {
+                || tok->subtype == COL || tok->subtype == ASSIGN
+                || tok->subtype == LCBRAC)) {
         restore_tok(&tok);
         if (sym->type && (isptr(sym->type) 
             || isfunc(sym->type) || isarray(sym->type))) {
@@ -1014,7 +1090,33 @@ Node static_assert_declaration(){
     }
     return sad;
 }
+void process_scs(Symbol sym) {
+    if (!sym || !scs)
+        return;
+    switch(scs) {
+        case SCS_TYPEDEF:   sym->sclass = SCS_TYPEDEF;  break;
+        case SCS_EXTERN:    sym->sclass = SCS_EXTERN;   break;
+        case SCS_STATIC:    sym->sclass = SCS_STATIC;   break;
+        case SCS_AUTO:      sym->sclass = SCS_AUTO;     break;
+        default:
+            error(&loc, "attempting to declare declarator with more than one storage class specifier");
+            break;
+    }
+}
 
+void merge_type(Type typ, struct dec_spec *ds, Type *t) {
+    // add type qualifier
+    if (isqual(typ)) {
+        switch(typ->id) {
+            case _ATOMIC:           ds->tq & TQ_ATOMIC;                     break;
+            case CONST:             ds->tq & TQ_CONST;                      break;   
+            case VOLATILE:          ds->tq & TQ_VOLATILE;                   break;
+            case CONST+VOLATILE:    ds->tq & TQ_CONST; ds->tq & TQ_VOLATILE;break;
+        }
+        typ = typ->type;
+    }
+    *t = typ;
+}
 Type build_type(struct dec_spec ds, Type ty) {
     // build type
     Type dec_type = NULL;
@@ -1024,7 +1126,7 @@ Type build_type(struct dec_spec ds, Type ty) {
     else if (ds.tq == TQ_CONST)
         dec_type = make_type(CONST, NULL, 0, 0, NULL, make_string("const", 5));
     else if (ds.tq == TQ_VOLATILE)
-        dec_type = make_type(CONST, NULL, 0, 0, NULL, make_string("volatile", 8));
+        dec_type = make_type(VOLATILE, NULL, 0, 0, NULL, make_string("volatile", 8));
     else if (ds.tq == (TQ_CONST + TQ_VOLATILE))
         dec_type = make_type(CONST + VOLATILE, NULL, 0, 0, NULL, make_string("const volatile", 14));
     // add type specifier

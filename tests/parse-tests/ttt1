@@ -2,7 +2,16 @@
 int i = sizeof (unsigned int);
 int i = sizeof ++1;
 struct temp {int x;} t = sizeof (int) {.x = 2};
-*/
 
 int _Alignas(char) i;
+
+*/
+typedef unsigned int size_t, *sz_t, sarr_t[];
+size_t i;
+sz_t ii;
+sarr_t arr;
+
+struct {
+   size_t i;
+};
 

@@ -45,6 +45,7 @@ Type charptype;     // char *
 
 Type uptype;        // unsigned pointer 
 Type sptype;        // signed pointer
+
 // maintain only a single copy of each type
 #define TYPE_TAB_SIZE 128
 static struct typeentry {
