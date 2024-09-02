@@ -245,6 +245,7 @@ typedef struct node {
     int subid;
     int subsubid;
     Symbol sym;
+    Field field;
     Type type;
     location loc;
     int num_kids;
@@ -406,6 +407,9 @@ Type make_struct(int id, char *tag, Location l);
 Type make_func(Type t, Vector proto);
 Type make_ptr(Type t);
 Type make_array(Type t, int size, int align);
+Type atop(Type t);
+Type array_type(Type t);
+Type deref(Type t);
 Field make_field(char *name, Type t, Type ft);
 Type qual(int id, Type t);
 int isqual(Type t);
@@ -417,6 +421,10 @@ char *struct_to_string(Type t);
 char *func_to_string(Type t);
 _Bool is_basetype(Type t);
 int variadic(Type t);
+_Bool match_proto(Node arg_list, Type t);
+_Bool expect_noargs(Type t);
+Field get_member(Type su, char *member);
+Type fieldtype(Type su, Type f);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))

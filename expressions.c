@@ -19,10 +19,13 @@ Node primary_expression(){
             Symbol sym = lookup(nd->val.strval, identifiers);
             if (!sym) {
                 error(&tok->loc, "usage of identifier before declaration");
-                nd->id = ND_CONST;
+                nd->sym = install(nd->val.strval, &identifiers, level, level < LOCAL ? PERM : FUNC);
+                nd->sym->type = sinttype;
                 nd->type = sinttype;
-                nd->val.intval.i = 1;
             } else {
+                // identifiers that have func type are understood to ptr to corresponding func type
+                if (isfunc(sym->type)) 
+                    sym->type = make_ptr(sym->type);
                 nd->type = sym->type;
                 nd->sym = sym;
             }
@@ -127,7 +130,9 @@ Node primary_expression(){
 
 Node generic_selection(){
     // _Generic ( assignment_expression , generic_assoc_list )
+    Node gen = make_node(ND_GENERIC, PERM);
     Token tok = lex();
+    gen->loc = tok->loc;
     if (tok->type != KEYWORD || tok->subtype != _GENERIC) {
         error(&(tok->loc), "expected _Generic keywords before generic expression");
     }
@@ -135,7 +140,6 @@ Node generic_selection(){
         error(&(tok->loc), "expected '(' before generic expression");
         escape_first(ND_ASSIGNEXPR);
     }
-    Node gen = make_node(ND_GENERIC, PERM);
     Node assign_expr = assignment_expression();
     add_child(gen, &assign_expr);
     if ((tok = lex())->subtype != COM) {
@@ -225,9 +229,9 @@ Node postfix_expression(){
         Token tokcpy = tok;
         tok = lex(); 
         if (!first(ND_TYPENAME, tok)) {
-            // restore in order of retrieval
-            restore_tok(&tokcpy);
+            // restore in opposite order of retrieval
             restore_tok(&tok);
+            restore_tok(&tokcpy);
             pf_root = primary_expression();
         } else {
             // type_name
@@ -267,7 +271,14 @@ Node postfix_expression(){
                 Node sel = make_node(ND_SELECT, PERM);
                 sel->loc = tok->loc;
                 add_child(sel, &pf_root);
+                // ensure that pf root has array or pointer type
+                if (!isarray(pf_root->type) && !isptr(pf_root->type)) {
+                    error(&tok->loc, "array subscripting operand expects array/pointer type");
+                    pf_root->type = make_array(pf_root->type, 5, 0);
+                }
+                sel->type = array_type(pf_root->type);
                 Node expr = expression();
+                // type check exr and ensure that it has type integer
                 add_child(sel, &expr);
                 pf_root = sel;
                 if ((tok = lex())->type != PUNCT || tok->subtype != RSQBRAC) {
@@ -281,11 +292,27 @@ Node postfix_expression(){
                 Node call = make_node(ND_CALL, PERM);
                 call->loc = tok->loc;
                 add_child(call, &pf_root);
+                // ensure that pf_root has ptr to function type
+                if (!isptr(pf_root->type) || !isfunc(deref(pf_root->type))) {
+                    error(&tok->loc, 
+                    "operand to a function call should have function or pointer to function type");
+                    call->type = sinttype;
+                    tc.call_err = 1;
+                } else 
+                    call->type = deref(pf_root->type)->type;
 
-                if ((tok = lex())->type == PUNCT && tok->subtype == RBRAC)
-                    return call;
+                if ((tok = lex())->type == PUNCT && tok->subtype == RBRAC) {
+                    if (!tc.call_err)
+                        expect_noargs(deref(pf_root->type));
+                    tc.call_err = 0;
+                    pf_root = call;
+                    break;
+                }
                 restore_tok(&tok);
                 Node arg_expr_list = argument_expression_list();
+                if (!tc.call_err) 
+                    match_proto(arg_expr_list, deref(pf_root->type));
+                tc.call_err = 0;
                 add_child(call, &arg_expr_list);
                 pf_root = call;
                 if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
@@ -299,11 +326,33 @@ Node postfix_expression(){
                 Node dot = make_node(ND_DOT, PERM);
                 dot->loc = tok->loc;
                 add_child(dot, &pf_root);
+                // ensure that pf_root has struct/union type
+                if (!isstructunion(pf_root->type)) {
+                    error(&tok->loc, "expected first operand of '.' operator to have struct/union type");
+                    tc.su_err =  1;
+                }
+
                 Node id = make_node(ND_ID, PERM);
                 tok = lex();
+                id->loc = tok->loc;
                 if (tok->type != ID) {
                     error(&(tok->loc), "expected identifier after '.' operator");
+                    tc.su_err = 1;
                 }
+                if (!tc.su_err) {
+                    id->field = get_member(pf_root->type, tok->val.strval); 
+                    if (!id->field) 
+                        error(&tok->loc, "given member does not belong to the given struct/union");
+                    else {
+                        // extra indirection is used in enforce C's cascading types
+                        //dot->type = id->field->type;
+                        //id->type = id->field->type;
+                        dot->type = fieldtype(pf_root->type, id->field->type);
+                        id->type = fieldtype(pf_root->type, id->field->type);
+                    }
+
+                }
+                tc.su_err = 0;
                 id->val.strval = tok->val.strval;
                 add_child(dot, &id);
                 pf_root = dot;
@@ -314,11 +363,31 @@ Node postfix_expression(){
                 Node arr = make_node(ND_ARROW, PERM);
                 arr->loc = tok->loc;
                 add_child(arr, &pf_root);
+                // ensure that pf_root has ptr to struct/union type
+                if (!isptr(pf_root->type) || !isstructunion(deref(pf_root->type))) {
+                    error(&tok->loc, 
+                            "expected first operand of '->' operator to have pointer to struct/union type");
+                    tc.su_err = 1;
+                }
                 Node idd = make_node(ND_ID, PERM);
                 tok = lex();
+                idd->loc = tok->loc;
                 if (tok->type != ID) {
                     error(&(tok->loc), "expected identifier after '->' operator");
+                    tc.su_err = 1;
                 }
+                if (!tc.su_err) {
+                    idd->field = get_member(deref(pf_root->type), tok->val.strval);
+                    if (!idd->field)
+                        error(&tok->loc, "given member does not belong to the given struct/union");
+                    else {
+                        //arr->type = idd->field->type;
+                        //idd->type = idd->field->type;
+                        arr->type = fieldtype(pf_root->type, idd->field->type);
+                        idd->type = fieldtype(pf_root->type, idd->field->type);
+                    }
+                }
+                tc.su_err = 0;
                 idd->val.strval = tok->val.strval;
                 add_child(arr, &idd);
                 pf_root = arr;
@@ -374,6 +443,7 @@ Type type_cast() {
     return tc;
 }
 
+/*
 Node argument_expression_list(){
     // assignment_expression
     // argument_expression_list , assignment_expression
@@ -384,13 +454,30 @@ Node argument_expression_list(){
         return arg_expr;
     }
     restore_tok(&tok);
-    Node arg_ls = make_node(ND_ARGEXPR, PERM);
+    Node arg_ls = make_node(ND_ARG_LIST, PERM);
     add_child(arg_ls, &arg_expr);
     arg_ls->loc = arg_expr->loc;
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
         arg_expr = assignment_expression();
         add_child(arg_ls, &arg_expr);
     }
+    restore_tok(&tok);
+    return arg_ls;
+}
+*/
+
+Node argument_expression_list(){
+    // assignment_expression
+    // argument_expression_list , assignment_expression
+    Node arg_ls = make_node(ND_ARG_LIST, PERM);
+    Node assign_expr;
+    Token tok;
+    do {
+        assign_expr = assignment_expression();
+        add_child(arg_ls, &assign_expr);
+        if (arg_ls->num_kids == 1) 
+            arg_ls->loc = assign_expr->loc;
+    } while ((tok = lex())->subtype == COM);
     restore_tok(&tok);
     return arg_ls;
 }

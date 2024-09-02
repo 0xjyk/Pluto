@@ -1,0 +1,17 @@
+void func(void) {
+    // no error parsing error
+    int arr[];
+    int *aptr;
+    arr[4] = 4;
+    aptr[3] = 3;
+    const int carr[];
+    carr[3] = 3;
+    // error 
+    int a;
+    a[4] = 4;
+}
+
+void func2 (void) {
+    func2();
+}
+

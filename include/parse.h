@@ -52,6 +52,8 @@ struct dec_spec {
 
 static struct tc {
     unsigned char in_switch;
+    _Bool call_err;
+    _Bool su_err;
 } tc;
 
 
@@ -126,6 +128,7 @@ Node static_assert_declaration();
 void process_scs(Symbol sym);
 void merge_type(Type typ, struct dec_spec *ds, Type *t);
 Type build_type(struct dec_spec ds, Type ty);
+void handle_su(Type *su);
 
 // statements
 Node statement();

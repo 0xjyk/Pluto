@@ -17,14 +17,14 @@ Node statement(){
         tok = lex(); 
         // labeled statement
         if (tok->subtype == COL) {
-            // restore in order of retrieval
-            restore_tok(&tokcpy);
+            // restore in opposite order of retrieval
             restore_tok(&tok);
+            restore_tok(&tokcpy);
             return labeled_statement();
         }
         // expression statement
-        restore_tok(&tokcpy);
         restore_tok(&tok);
+        restore_tok(&tokcpy);
         return expression_statement();
         // expression statement
     } else if ((first(ND_EXPR, tok) && tok->subtype != LCBRAC) || tok->subtype == SCOL) {
@@ -271,7 +271,7 @@ Node iteration_statement(){
                         
             enterscope();
             stmt = statement();
-            enterscope();
+            exitscope();
             add_child(iter_stmt, &stmt);
             exitscope();
             break;

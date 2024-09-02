@@ -113,15 +113,19 @@ void restore_tok(Token *tok) {
     nxt->tok = *tok;
     nxt->nxt = NULL; 
 
-    // append to the end of ts
     if (!ts) {
         ts = nxt; 
         return; 
     }
+    // insert in the front of the queue
+    nxt->nxt = ts;
+    ts = nxt;
+    /*
     token_store *tscpy = ts;
     while (tscpy->nxt != NULL) 
         tscpy = tscpy->nxt;
     tscpy->nxt = nxt; 
+    */
 }
 
 void print_node(Node n, int indent) {

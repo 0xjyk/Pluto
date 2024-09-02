@@ -1,0 +1,20 @@
+struct s { int i ; const int ci ; };
+struct s s;
+const struct s cs;
+volatile struct s vs;
+
+int main(int argc, char **argv) {
+    // signed int
+    s.i;
+    // const signed int
+    s.ci;
+    // const signed int
+    cs.i;
+    // const signed int
+    cs.ci;
+    // volatile signed int
+    vs.i;
+    // volatile const signed int
+    vs.ci;
+
+}

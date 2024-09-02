@@ -351,7 +351,7 @@ Type specifier_qualifier_list() {
             tok->subtype == LSQBRAC)))
             break;
 
-        seen == 0;
+        seen = 0;
         restore_tok(&tok);
         if (seen |= type_specifier(&ds, &t))
             continue;
@@ -1202,8 +1202,51 @@ Type build_type(struct dec_spec ds, Type ty) {
         *t = doubletype;
     else if (ds.ts == TS_LONG + TS_DOUBLE)
         *t = longdoubletype;
-    // struct or union
-
     // make sure dec type is not null
     return dec_type;
 }
+
+
+// this version of handle su is incorrect as it doesn't handle 
+// members that are arrays structs/unions and function ptrs - shouldn't be used
+void handle_su(Type *su) {
+    // if the struct/union is qualified the qualifiers applies to each member
+    if (isqual(*su)) {
+        int qualval = (*su)->id;
+        *su = unqual(*su);
+        Field fls = (*su)->u.sym->u.s.flist;
+        while (fls) {
+            Type flst = fls->type;
+            if (!isqual(flst))
+                fls->type = qual(qualval, flst);
+            // no action needed if both specify the same qualifier
+            else if (isqual(flst) && qualval != flst->id) {
+                int *flstqval = &(flst->id);
+               switch (qualval) {
+                    case _ATOMIC: 
+                        fls->type = qual(_ATOMIC, flst->type); break;
+                    case CONST:
+                        if (*flstqval == VOLATILE) 
+                            *flstqval += CONST;
+                        break;
+                        // if its const+volatile or atomic, then no action is needed
+                    case VOLATILE:
+                        if (*flstqval == CONST)
+                            *flstqval += VOLATILE;
+                        break;
+                        // if its const+volatile or atomic, then no action is needed
+                    case CONST+VOLATILE:
+                        if (*flstqval != _ATOMIC)
+                            *flstqval = CONST+VOLATILE;
+                        break;
+               }
+
+            }
+            fls = fls->next;
+        }
+    }
+
+}
+
+
+

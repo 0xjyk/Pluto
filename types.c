@@ -138,11 +138,31 @@ Type atop(Type t) {
     return make_ptr(t);
 }
 
+Type array_type(Type t) {
+    if (isptr(t))
+        return deref(t);
+    return deref(atop(t));
+}
+
 Type qual(int id, Type t) {
     // check type qualifier rules: TODO 
     if (id & TQ_ATOMIC) {
         return make_type(_ATOMIC, t, 0, 0, NULL, 
                 make_string("_Atomic", 7));
+    }
+    switch(id) {
+        case CONST: 
+            id = TQ_CONST; break;
+        case VOLATILE: 
+            id = TQ_VOLATILE; break;
+        case RESTRICT:
+            id = TQ_RESTRICT; break;
+        case CONST+VOLATILE:
+            id = TQ_CONST+TQ_VOLATILE; break;
+        case CONST+RESTRICT:
+            id = TQ_CONST+TQ_RESTRICT; break;
+        case CONST+VOLATILE+RESTRICT:
+            id = TQ_CONST+TQ_VOLATILE+TQ_RESTRICT; break;
     }
     switch (id) {
         case TQ_CONST: 
@@ -560,7 +580,138 @@ char *func_to_string(Type t) {
 }
 
 
+// type checking functions 
+_Bool match_proto(Node arg_list, Type t) {
+    int call_params = arg_list->num_kids;
+    _Bool isvariadic = variadic(t);
+    int proto_params = t->u.f.proto->size;
+    proto_params -= isvariadic ? 2 : 1;
+    Node arg = arg_list->kids;
+    Symbol p = (Symbol) vec_get(t->u.f.proto, 0);
+
+    // if the t is variadic then proto_params should be <= call_params
+    for (int i = 0; i < proto_params; i++) {
+        p = (Symbol) vec_get(t->u.f.proto, i);
+        if (!p) {
+            error(&loc, "internal erorr while matching function prototype");
+            return 0;
+        }
+        if (!arg) {
+            error(&loc, "attempting to make function call with insufficient arguments");
+            return 0;
+        }
+        // incorrect update once type compatibality is done
+        if (arg->type != p->type) {
+            error(&loc, "given arguement is incompatile with function declaration");
+            return 0;
+        }
+        arg = arg->nxt;
+    }
+    // if not variadic then number of arguments should match
+    if (!isvariadic && arg) {
+        error(&loc, "attempting to make function call with extra parameters");
+        return 0;
+    }
+    return 1;
+}
+_Bool expect_noargs(Type t) {
+    int num_args = t->u.f.proto->size;
+    if (num_args == 2) {
+        Symbol p1 = (Symbol) vec_get(t->u.f.proto, 0);
+        Symbol p2 = (Symbol) vec_get(t->u.f.proto, 1);
+        if (p1 && !p2 && p1->type == voidtype)
+            return 1;
+    }
+    error(&loc, "attempting to make function call with insufficient arguments");
+    return 0;
+}
 
 
+Field get_member(Type su, char *member) {
+    if (isqual(su)) {
+        su = unqual(su);
+    }
+    Field fls = su->u.sym->u.s.flist;
+    while (fls) {
+        if (fls->name == member) {
+            return fls;
+        }
+        fls = fls->next;
+    }
+    return NULL;
+}
+/*
+Field update_qual(int qualval, Field *fls) {
+    // if qualval wasn't specified or, 
+    // if qualval matches that of fls don't take any action
+    if (!qualval)
+        return *fls;
+    Type flst = (*fls)->type;
+    if (isqual(flst) && flst->id == qualval)
+        return *fls;
+    // fls wasn't qualified, update it with the qualified version 
+    if (!isqual(flst)) {
+        (*fls)->type = qual(qualval, (*fls)->type);
+        return *fls;
+    }
+    // at this point fls is qualified and doesn't match qualval
+    int *flstqval = &(flst->id);
+     switch (qualval) {
+        case _ATOMIC: 
+            (*fls)->type = qual(TQ_ATOMIC, flst->type); break;
+            // if qualval is atomic, it doesn't matter what fls's previous qualval was
+        case CONST:
+            if (*flstqval == VOLATILE) 
+                *flstqval += CONST;
+            break;
+            // if its const+volatile or atomic, then no action is needed
+        case VOLATILE:
+            if (*flstqval == CONST)
+                *flstqval += VOLATILE;
+            break;
+            // if its const+volatile or atomic, then no action is needed
+        case CONST+VOLATILE:
+            if (*flstqval != _ATOMIC)
+                *flstqval = CONST+VOLATILE;
+                    break;
+        }
+     return *fls;
+}
+*/
+Type update_qual(int qualval, Type t) {
+    // if qualval wasn't specified or, 
+    // if qualval matches that of fls don't take any action
+    if (!qualval)
+        return t;
+    if (isqual(t) && t->id == qualval)
+        return t;
+    if (!isqual(t))
+        return qual(qualval, t);
+    // at his point t is qualified and doesn't match qualval
+    int newqual = qualval;
+    switch(qualval) {
+        case CONST:
+            if (t->id == VOLATILE)
+                newqual += VOLATILE;
+            break;
+        case VOLATILE:
+            if (t->id == CONST)
+                newqual += CONST;
+            break;
+        case CONST + VOLATILE:
+            if (t->id == _ATOMIC)
+                newqual = _ATOMIC;
+            break;
+    }
+    // new qualifier gets applied to the base type
+    return qual(newqual, t->type);
+}
 
-
+Type fieldtype(Type su, Type f) {
+    int qualval = 0;
+    if (isqual(su))
+        qualval = su->id;
+    if (qualval)
+        return update_qual(qualval, f);
+    return f;
+}

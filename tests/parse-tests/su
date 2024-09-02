@@ -1,0 +1,36 @@
+const struct { int i; char c; } s;
+union { int i; char c; } u;
+enum {CHAR} e;
+int i;
+const struct ss {int i; const char c;} *ss;
+const volatile union {
+    int i; 
+    const union {
+        char d;
+        int i;
+    }u;
+} cvu;
+
+int main() {
+    // no error
+    s.i;
+    s.c;
+    u.i;
+    u.c;
+    ss->i;
+    ss->c;
+    cvu.i;
+    cvu.u.i;
+    // error
+    s.s;
+    u.s;
+    e.i;
+    i.c;
+    ss.i;
+    ss.c;
+    ss.s;
+    ss->s;
+    s->i;
+    u->i;
+
+}
