@@ -275,6 +275,7 @@ typedef struct node {
 } node;
 
 
+
 // gloabal variables
 
 extern unsigned char JOBSCOPE;

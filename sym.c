@@ -63,6 +63,8 @@ unsigned int exitscope() {
             types = types->prev;
         if (identifiers->level == level)
             identifiers = identifiers->prev;
+        if (level == PARAM) 
+            labels = NULL;
     }
     // don't do anything to the table if level was greater than the tables level
     return --level;
@@ -78,7 +80,7 @@ Symbol install(char *name, Table *tb, unsigned int lev, int an) {
     Table tbcpy = *tb;
     
     // if current level is lower than level append new table with lev
-    if (tbcpy->level < lev) 
+    if (!*tb || tbcpy->level < lev) 
         tbcpy = *tb = make_table(tbcpy, lev);
     // at this point if tbcpy isn't of lev (since it shouldn't be greater 
     // then it's an internal error

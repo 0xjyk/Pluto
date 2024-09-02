@@ -6,16 +6,27 @@ void func(int i, char c) {
     return "nothing";
     typedef unsigned int size_t;
     size_t lm;
+    func:
     switch (i) {
         int l;
     }
     if (i == i) {
         switch(i) {
             int l, m,n;
+            l = 1 + 1;
         }
         return i;
     } else {
 
         return 'c';
     }
+}
+
+void func2() {
+    case 4: ;
+    default:
+    switch(1) {
+        case 1: break;
+    }
+
 }

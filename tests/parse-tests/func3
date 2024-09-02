@@ -1,0 +1,50 @@
+// Define a struct to demonstrate struct usage
+struct Person {
+    char name[50];
+    int age;
+};
+
+// A function to demonstrate various C constructs
+void demonstrateCFeatures() {
+    // Conditional statement
+    printf("n is greater than 5\n");
+    int n = 10;
+    if (n > 5) {
+    } else {
+        printf("n is not greater than 5\n");
+    }
+
+    // Loop example
+    for (int i = 0; i < 5; i++) {
+        printf("Loop iteration: %d\n", i);
+    }
+
+    // Dynamic memory allocation
+    char *dynamicStr = (char *)malloc(100 * sizeof(char));
+    if (dynamicStr == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
+    
+    strcpy(dynamicStr, "Hello, dynamic memory!");
+    printf("%s\n", dynamicStr);
+
+    // Using structs
+    struct Person person;
+    strcpy(person.name, "Alice");
+    person.age = 30;
+    printf("Name: %s, Age: %d\n", person.name, person.age);
+
+    // Pointer example
+    int x = 42;
+    int *ptr = &x;
+    printf("Value of x: %d, Value via pointer: %d\n", x, *ptr);
+
+    // Free dynamically allocated memory
+    free(dynamicStr);
+}
+
+int main() {
+    demonstrateCFeatures();
+    return 0;
+}

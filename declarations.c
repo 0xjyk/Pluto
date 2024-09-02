@@ -599,28 +599,48 @@ Node init_declarator(Type ds){
     // declarator
     // declarator = initializer
 
-    Node dd = make_node(ND_DECL, PERM);
-    // retrieve declaration and install as a global - little wasteful due to lack of foresight
+    // retrieve declaration     
     Symbol sym = declarator(ds, 0);
-    dd->sym = install(sym->name, &identifiers, level, level < LOCAL ? PERM : level);
-    //dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
-    dd->sym->loc = sym->loc;
-    dd->sym->type = sym->type;
-    dd->sym->sclass = sym->sclass;
-    dd->loc = sym->loc; 
-    dd->type = sym->type;
-    dd->val.strval = sym->name;
+    
     Token tok = lex();
     // a declarator could be followed my a definition (violates the grammar a little)
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         // needs updation todo - type mismatch
         restore_tok(&tok);
-        return function_definition(dd->sym);
+        return function_definition(sym);
+    } else 
+        restore_tok(&tok);
+
+    Node dd = make_node(ND_DECL, PERM);
+    // first lookup the identifier
+    Symbol s = lookup(sym->name, identifiers);
+    if (s && s->scope == level) {
+        // ensure that types match TODO
+        dd->sym = s;
+        dd->type = s->type;
+        dd->val.strval = s->name;
+        dd->loc = s->loc;
+    } else {
+        dd->sym = install(sym->name, &identifiers, level, level < LOCAL ? PERM : FUNC);
+        //dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
+        dd->sym->type = sym->type;
+        dd->sym->sclass = sym->sclass;
+        dd->sym->defined = 0;
+        dd->sym->loc = sym->loc;
+        dd->type = sym->type;
+        dd->val.strval = sym->name;
+        dd->loc = sym->loc; 
     }
+
+    
     // optional assignment gets added to ND_DECL as a child if present
-    if (tok->type == PUNCT && tok->subtype == ASSIGN) {
+    if ((tok = lex())->type == PUNCT && tok->subtype == ASSIGN) {
         dd->loc = tok->loc; 
         Node init = initializer();
+        s = lookup(dd->sym->name, identifiers);
+        if (s && s->scope == level && s->defined)
+            error(&dd->loc, "attempted to redefine previously defined identifier");
+        dd->sym->defined = 1;
         add_child(dd, &init);
         return dd;
     }

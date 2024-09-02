@@ -55,21 +55,36 @@ Node labeled_statement(){
     // case constant-expression : statement
     // default : statement
     Token tok = lex();
-    Node label_stmt = make_node(0, level < LOCAL ? PERM : level);
+    Node label_stmt = make_node(0, PERM);
     label_stmt->loc = tok->loc;
     switch(tok->subtype) {
         case ID: 
             label_stmt->id = ND_ID_LABEL;
+            Symbol s = lookup(tok->val.strval, labels);
+            if (s && s->defined) {
+                error(&tok->loc, "attempting to redefine previously defined label");
+            }
+            label_stmt->sym = install(tok->val.strval, &labels, level, FUNC);
+            label_stmt->sym->defined = 1;
+            label_stmt->sym->loc = tok->loc;
+            break;
+        // both case and default cannot contains VLAs todo
         case CASE:
+            if (!tc.in_switch) {
+                error(&tok->loc, "attempting to declare case statement outside switch statement");
+            }
             label_stmt->id = ND_CASE_LABEL;
             Node const_expr = constant_expression();
             add_child(label_stmt, &const_expr);
             break;
         case DEFAULT:
+            if (!tc.in_switch) {
+                error(&tok->loc, "attempting to declare default statement outside switch statement");
+            }
             label_stmt->id = ND_DEFAULT_LABEL;
         // default case not needed
     }
-    if ((tok = lex())->subtype != LBRAC) {
+    if ((tok = lex())->subtype != COL) {
         error(&tok->loc, "expected ':' between case expression and statement");
         restore_tok(&tok);
     }
@@ -112,7 +127,8 @@ Node expression_statement(){
     Token tok = lex();
     Node expr;
     if (tok->subtype == SCOL) {
-        expr = make_node(ND_EXPR, level < LOCAL ? PERM : level);
+        expr = make_node(ND_EXPR, PERM);
+        expr->loc = tok->loc;
         return expr;
     } 
     restore_tok(&tok);
@@ -128,12 +144,14 @@ Node selection_statement(){
     // if ( expression ) statement else statement
     // switch ( expression ) statement
     Token tok = lex();
-    Node sel_stmt = make_node(0, level < LOCAL ? PERM : level);
+    Node sel_stmt = make_node(0, PERM);
+    sel_stmt->loc = tok->loc;
     if (tok->subtype == IF)
         sel_stmt->id = ND_IF_STMT;
-    else if (tok->subtype == SWITCH)
+    else if (tok->subtype == SWITCH) {
+        tc.in_switch++;
         sel_stmt->id = ND_SWITCH_STMT;
-    else
+    } else
         sel_stmt->id = ND_IF_STMT;
     // ( expression ) statement
     if ((tok = lex())->subtype != LBRAC) {
@@ -141,6 +159,9 @@ Node selection_statement(){
         error(&tok->loc, "expected '(' after if/switch keyword");
     }
     Node expr = expression();
+    // type check and ensure that 
+    // if ND_IF_STMT, then the resulting type is a scalar type todo
+    // if ND_STMT, then the resulting type is of integer type todo
     add_child(sel_stmt, &expr);
     if ((tok = lex())->subtype != RBRAC) {
         restore_tok(&tok);
@@ -148,6 +169,8 @@ Node selection_statement(){
     }
     Node stmt = statement();
     add_child(sel_stmt, &stmt);
+    if (sel_stmt->id == ND_SWITCH_STMT)
+        tc.in_switch--;
     // optional else extension
     if (sel_stmt->id == ND_IF_STMT) 
         if (((tok = lex())->subtype == ELSE)) {
@@ -168,6 +191,7 @@ Node iteration_statement(){
     Node expr, stmt;
     switch(tok->subtype) {
         case WHILE:
+            enterscope();
             iter_stmt->id = ND_WHILE;
             if ((tok = lex())->subtype != LBRAC) {
                 restore_tok(&tok);
@@ -179,11 +203,19 @@ Node iteration_statement(){
                 restore_tok(&tok);
                 error(&tok->loc, "expetected ')' after predicate expression in while statement");
             }
+            enterscope();
             stmt = statement();
+            exitscope();
             add_child(iter_stmt, &stmt);
+            exitscope();
             break;
         case DO:
+            enterscope();
+            iter_stmt->id = ND_DO_WHILE;
+            enterscope();
             stmt = statement();
+            add_child(iter_stmt, &stmt);
+            exitscope();
             if ((tok = lex())->subtype != WHILE) {
                 restore_tok(&tok);
                 error(&tok->loc, "expected 'while' keyword after 'do' statement");
@@ -202,14 +234,17 @@ Node iteration_statement(){
                 restore_tok(&tok);
                 error(&tok->loc, "expected ';' after while ( expression )");
             }
+            exitscope();
             break;
         case FOR:
+            enterscope();
+            iter_stmt->id = ND_FOR;
             if ((tok = lex())->subtype != LBRAC) {
                 restore_tok(&tok);
                 error(&tok->loc, "expected '(' after for keyword");
             }
             tok = lex();
-            if (first(ND_DECL, tok)) {
+            if (first(ND_DS, tok)) {
                 restore_tok(&tok);
                 Node decl = declaration(); 
                 add_child(iter_stmt, &decl);
@@ -224,13 +259,21 @@ Node iteration_statement(){
                 restore_tok(&tok);
                 expr = expression();
                 add_child(iter_stmt, &expr);
+                if ((tok = lex())->subtype != RBRAC) {
+                    restore_tok(&tok);
+                    error(&tok->loc, "expected ')' after predicate expression in for statement");
+                }
+            } else {
+                expr = make_node(ND_EXPR, PERM);
+                expr->loc = tok->loc;
+                add_child(iter_stmt, &expr);
             }
-            if ((tok = lex())->subtype != RBRAC) {
-                restore_tok(&tok);
-                error(&tok->loc, "expected ')' after predicate expression in while statement");
-            }
+                        
+            enterscope();
             stmt = statement();
+            enterscope();
             add_child(iter_stmt, &stmt);
+            exitscope();
             break;
     }
     return iter_stmt;
@@ -239,17 +282,18 @@ Node jump_statement(){
     // goto identifier ;
     // continue ;
     // break ;
-    // return expression[opt];
+    // return expression[opt] ;
     Token tok = lex(); 
     Node jmp_stmt = make_node(0, PERM);
+    jmp_stmt->loc = tok->loc;
     switch (tok->subtype) {
         case GOTO:
             jmp_stmt->id = ND_GOTO;
             if ((tok = lex())->type == ID) {
                 Symbol sym = lookup(tok->val.strval, labels);
                 if (!sym) {
-                    error(&tok->loc, "given label doesn't correspond to any previously declared label");
-                    jmp_stmt->id = ND_CONTINUE;
+                    jmp_stmt->sym = install(tok->val.strval, &labels, level, FUNC);
+                    jmp_stmt->sym->defined = 0;
                 } else 
                     jmp_stmt->sym = sym;
             } else {
@@ -302,15 +346,25 @@ Node function_definition(Symbol sym){
         vec_pushback(sym->type->u.f.proto, voidtype);
         vec_pushback(sym->type->u.f.proto, NULL);   
     }
-    func_def->sym = sym;
-    func_def->loc = sym->loc;
-    func_def->type = sym->type;
     // first lookup sym->name to see that it hasn't been previously defined
     Symbol s = lookup(sym->name, identifiers);
-    if (s->defined) {
-        error(&sym->loc, "attempting to redefine previously defined function");
-    } else 
+    // if s exits but with a different type, throw error
+    if (!s) {
+        s = install(sym->name, &identifiers, GLOBAL, PERM);
+        s->type = sym->type;
         s->defined = 1;
+        s->sclass = sym->sclass;
+        s->loc = sym->loc;
+    } else if (s && s->defined) {
+        error(&sym->loc, "attempting to redefine previously defined function");
+    } else if (s && !s->defined) {
+        s->defined = 1;
+    }
+    // at this point s should be the correct symbol to define 
+    func_def->sym = s;
+    func_def->loc = l;
+    func_def->type = s->type;
+    func_def->val.strval = s->name;
     enterscope();
     // add each parameter to the newly created scope
     Vector proto = func_def->sym->type->u.f.proto;
@@ -331,6 +385,7 @@ Node function_definition(Symbol sym){
     Node comp_expr = compound_statement();
     exitscope();
     add_child(func_def, &comp_expr);
+    dealloc(FUNC);
     return func_def;
 }
 

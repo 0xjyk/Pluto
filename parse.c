@@ -53,9 +53,14 @@ Node parse(char *pp_file) {
             child->loc = l; 
             //child->type = ds;
             add_child(root, &child);
-            tok = lex(); 
-            if (child->id != ND_FUNC_DEF && (tok->type != PUNCT || tok->subtype != SCOL))
-                error(&tok->loc, "expected ';' after declaration");
+            if (child->id != ND_FUNC_DEF) {
+                tok = lex(); 
+                if (tok->subtype != SCOL) {
+                    restore_tok(&tok);
+                    error(&tok->loc, "expected ';' after declaration");
+                }
+            }
+
             continue;
         } else {
             error(&tok->loc, "expected declarator after declaration specifier(s)");
@@ -141,7 +146,7 @@ void print_node(Node n, int indent) {
     switch (n->id) {
     case ND_ROOT:
         printf("%s \n", node_map[ND_ROOT - 256]); break;
-    case ND_ID: case ND_STR: case ND_DECL:
+    case ND_ID: case ND_STR: case ND_DECL: case ND_FUNC_DEF:
         printf("|-- %s \"%s\" [type: %s] <line:%d, col:%d>\n", node_map[n->id - 256], \
                     n->val.strval, ttos(n->type), n->loc.y, n->loc.x);
         break;
@@ -167,7 +172,6 @@ void print_node(Node n, int indent) {
         break;
         }
         break;
-    case ND_EXPR:       break;
     case ND_SAD: 
         printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                 n->loc.y, n->loc.x);

@@ -50,6 +50,10 @@ struct dec_spec {
     // typedef name: TODO
 };
 
+static struct tc {
+    unsigned char in_switch;
+} tc;
+
 
 // parsing functions
 
