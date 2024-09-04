@@ -279,12 +279,17 @@ _Bool first(int id, Token tok) {
             break;
         case ND_TYPENAME:
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _ATOMIC) || 
-                    (tok->type == ID && lookup(tok->val.strval, types)))
+                    (tok->type == ID && typedef_name(tok)))
                     return 1;
             break;
         case ND_UNARY: case ND_EXPR:
             switch (tok->type) {
                 case ID: case STR: case UCHAR: case INTCONST: case ERROR:
+                    // a typedef name shouldn't begin an expression 
+                    // except if it is function
+                    if (tok->type == ID && typedef_name(tok)) {
+                        return 0;
+                    }
                     return 1;
                     break;
                 case PUNCT: 

@@ -247,6 +247,8 @@ typedef struct node {
     Symbol sym;
     Field field;
     Type type;
+    _Bool lval:1;
+    _Bool rval:1;
     location loc;
     int num_kids;
     Node nxt;
@@ -425,6 +427,13 @@ _Bool match_proto(Node arg_list, Type t);
 _Bool expect_noargs(Type t);
 Field get_member(Type su, char *member);
 Type fieldtype(Type su, Type f);
+Type base_type(Type t);
+_Bool is_lval(Symbol s);
+_Bool modifiable_lval(Type t);
+Type promote(Type t);
+_Bool iscomplete(Type t);
+Type usual_arithmetic_conversion(Type t1, Type t2);
+_Bool iscompatible(Type t1, Type t2);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))
@@ -437,14 +446,22 @@ Type fieldtype(Type su, Type f);
 #define isunion(t)          (unqual(t)->id == UNION)
 #define isfunc(t)           (unqual(t)->id == FUNCTION)
 #define isptr(t)            (unqual(t)->id == POINTER)
-#define ischar(t)           (unqual(t)->id == CHAR)
+#define ischar(t)           ((unqual(t)->id == SIGNED && unqual(t)->type->id == CHAR) || \
+                             (unqual(t)->id == UNSIGNED && unqual(t)->type->id == CHAR) || \
+                             unqual(t)->id == CHAR)
 #define isint(t)            (unqual(t)->id >= CHAR \
-                            && (t)->id <= UNSIGNED)
-#define isarith(t)          (unqual(t)->id >= CHAR \
-                            && (t)->id <= DOUBLE)
+                            && unqual(t)->id <= SIGNED \
+                            || unqual(t)->id == ENUM)
+#define isreal(t)           (isint(t) || \
+                            (unqual(t)->id == FLOAT) || \
+                            (unqual(t)->id == SDOUBLE) || \
+                            (unqual(t)->id == LDOUBLE))
+#define isarith(t)          (isreal(t))
 #define isunsigned(t)       (unqual(t)->id == UNSIGNED)
-#define isdouble(t)         (unqual(t)->id >= FLOAT \
-                            || unqual(t)->id <= DOUBlE)
+#define issigned(t)         (unqual(t)->id == SIGNED)
+#define isdouble(t)         ((unqual(t)->id == FLOAT) || \
+                            (unqual(t)->id == SDOUBLE) || \
+                            (unqual(t)->id == LDOUBLE))
 #define isscalar(t)         (isarith(t) || unqual(t)->id == ENUM \
                             || unqual(t)->id == POINTER)
 #define isenum(t)           (unqual(t)->id == ENUM)

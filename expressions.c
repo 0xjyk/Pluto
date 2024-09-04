@@ -17,6 +17,8 @@ Node primary_expression(){
             nd->val.strval = tok->val.strval;
             // assign type based on enclosing declaration 
             Symbol sym = lookup(nd->val.strval, identifiers);
+            nd->lval = 1;
+            nd->rval = 1;
             if (!sym) {
                 error(&tok->loc, "usage of identifier before declaration");
                 nd->sym = install(nd->val.strval, &identifiers, level, level < LOCAL ? PERM : FUNC);
@@ -24,8 +26,13 @@ Node primary_expression(){
                 nd->type = sinttype;
             } else {
                 // identifiers that have func type are understood to ptr to corresponding func type
-                if (isfunc(sym->type)) 
+                if (isfunc(sym->type)) {
                     sym->type = make_ptr(sym->type);
+                    nd->lval = 0;
+                } 
+                // arrays are converted to pointers
+                if (isarray(sym->type)) 
+                    sym->type = atop(sym->type);
                 nd->type = sym->type;
                 nd->sym = sym;
             }
@@ -37,12 +44,16 @@ Node primary_expression(){
             nd->subid = ND_UCHAR;
             nd->val.charval.c = tok->val.charval.c;
             nd->loc = tok->loc;
+            nd->lval = 0;
+            nd->rval = 1;
             return nd;
         case INTCONST:
             nd = make_node(ND_CONST, PERM);
             nd->subid = ND_INT;
             nd->subsubid = tok->subtype;
             nd->loc = tok->loc;
+            nd->lval = 0;
+            nd->rval = 1;
             switch (tok->subtype) {
                 case ULLONG:
                     nd->type = ulonglongtype;
@@ -75,6 +86,8 @@ Node primary_expression(){
             nd->subid = ND_FLOAT;
             nd->subsubid = tok->subtype;
             nd->loc = tok->loc;
+            nd->lval = 0;
+            nd->rval = 1;
             switch (tok->subtype) {
                 case SDOUBLE:
                     nd->type = doubletype;
@@ -97,6 +110,8 @@ Node primary_expression(){
             nd->type = charptype;
             nd->val.strval = tok->val.strval;
             nd->loc = tok->loc;
+            nd->lval = 1;
+            nd->rval = 1;
             return nd;
         case PUNCT:
             if (tok->subtype != LBRAC) {
@@ -210,6 +225,7 @@ Node postfix_expression(){
     Node pf_root;
     if (tok->subtype == LCBRAC) {
         pf_root = make_node(ND_COMP_LIT, PERM);
+        pf_root->loc = tok->loc;
         Node init_list = initializer_list();
         add_child(pf_root, &init_list);
         if ((tok = lex())->subtype != RCBRAC) {
@@ -280,6 +296,8 @@ Node postfix_expression(){
                 Node expr = expression();
                 // type check exr and ensure that it has type integer
                 add_child(sel, &expr);
+                sel->lval = 1;
+                sel->rval = 1;
                 pf_root = sel;
                 if ((tok = lex())->type != PUNCT || tok->subtype != RSQBRAC) {
                     error(&(tok->loc), "expected closing ']' after expression in seclection expression");
@@ -314,6 +332,8 @@ Node postfix_expression(){
                     match_proto(arg_expr_list, deref(pf_root->type));
                 tc.call_err = 0;
                 add_child(call, &arg_expr_list);
+                call->lval = 0;
+                call->rval = 1;
                 pf_root = call;
                 if ((tok = lex())->type != PUNCT || tok->subtype != RBRAC) {
                     error(&(tok->loc), "expected closing ')' after expression in function call expression");
@@ -326,6 +346,9 @@ Node postfix_expression(){
                 Node dot = make_node(ND_DOT, PERM);
                 dot->loc = tok->loc;
                 add_child(dot, &pf_root);
+                if (pf_root->lval)
+                    dot->lval = 1;
+                dot->rval = 1;
                 // ensure that pf_root has struct/union type
                 if (!isstructunion(pf_root->type)) {
                     error(&tok->loc, "expected first operand of '.' operator to have struct/union type");
@@ -341,6 +364,7 @@ Node postfix_expression(){
                 }
                 if (!tc.su_err) {
                     id->field = get_member(pf_root->type, tok->val.strval); 
+                    dot->field = id->field;
                     if (!id->field) 
                         error(&tok->loc, "given member does not belong to the given struct/union");
                     else {
@@ -348,7 +372,7 @@ Node postfix_expression(){
                         //dot->type = id->field->type;
                         //id->type = id->field->type;
                         dot->type = fieldtype(pf_root->type, id->field->type);
-                        id->type = fieldtype(pf_root->type, id->field->type);
+                        id->type = dot->type;
                     }
 
                 }
@@ -363,6 +387,8 @@ Node postfix_expression(){
                 Node arr = make_node(ND_ARROW, PERM);
                 arr->loc = tok->loc;
                 add_child(arr, &pf_root);
+                arr->lval = 1;
+                arr->rval = 1;
                 // ensure that pf_root has ptr to struct/union type
                 if (!isptr(pf_root->type) || !isstructunion(deref(pf_root->type))) {
                     error(&tok->loc, 
@@ -378,13 +404,15 @@ Node postfix_expression(){
                 }
                 if (!tc.su_err) {
                     idd->field = get_member(deref(pf_root->type), tok->val.strval);
+                    arr->field = idd->field;
+
                     if (!idd->field)
                         error(&tok->loc, "given member does not belong to the given struct/union");
                     else {
                         //arr->type = idd->field->type;
                         //idd->type = idd->field->type;
                         arr->type = fieldtype(pf_root->type, idd->field->type);
-                        idd->type = fieldtype(pf_root->type, idd->field->type);
+                        idd->type = arr->type; 
                     }
                 }
                 tc.su_err = 0;
@@ -398,6 +426,14 @@ Node postfix_expression(){
                 Node incr = make_node(ND_INCR, PERM);
                 incr->loc = tok->loc;
                 add_child(incr, &pf_root);
+                incr->type = pf_root->type;
+                incr->lval = 0;
+                incr->rval = 1;
+                if (!isptr(pf_root->type) && !isarith(pf_root->type))
+                    error(&tok->loc, "increment operator requires real type / pointer type");
+                // first operand should be both an lval and modifiable
+                else if (!pf_root->lval || !modifiable_lval(pf_root->type)) 
+                    error(&tok->loc, "modifiable lvalue required as increment operand");
                 pf_root = incr;
                 break;
                 }
@@ -406,6 +442,14 @@ Node postfix_expression(){
                 Node decr = make_node(ND_DECR, PERM);
                 decr->loc = tok->loc;
                 add_child(decr, &pf_root);
+                decr->type = pf_root->type;
+                decr->lval = 0;
+                decr->rval = 1;
+                if (!isptr(pf_root->type) && !isarith(pf_root->type))
+                    error(&tok->loc, "decrement operator requires real type / pointer type");
+                // first operand should be both an lval and modifiable
+                else if (!pf_root->lval || !modifiable_lval(pf_root->type)) 
+                    error(&tok->loc, "modifiable lvalue required as decrement operand");
                 pf_root = decr;
                 break;
                 }
@@ -426,9 +470,9 @@ Type type_cast() {
         Token tokcpy = tok;
         tok = lex(); 
         if (!first(ND_TYPENAME, tok)) {
-            // restore in order of retrieval
-            restore_tok(&tokcpy);
+            // restore in opposite order of retrieval
             restore_tok(&tok);
+            restore_tok(&tokcpy);
         } else {
             // type_name
             restore_tok(&tok);
@@ -481,7 +525,6 @@ Node argument_expression_list(){
     restore_tok(&tok);
     return arg_ls;
 }
-
 Node unary_expression(){
     // postfix-expression
     // ++ unary_expression
@@ -508,46 +551,126 @@ Node unary_expression(){
                 case INCR:
                     nd->id = ND_UINCR;
                     temp = unary_expression();
+                    nd->type = temp->type;
+                    nd->lval = 0; 
+                    nd->rval = 1;
+                    if (!isptr(temp->type) && !isarith(temp->type))
+                        error(&nd->loc, "increment operator requires real type / pointer type");
+                    else if (!temp->lval || !modifiable_lval(temp->type)) 
+                        error(&nd->loc, "modifiable lvalue required as increment operand");
                     add_child(nd, &temp);
                     return nd;
                 case DECR:
                     nd->id = ND_UDECR;
                     temp = unary_expression();
+                    nd->type = temp->type;
+                    nd->lval = 0; 
+                    nd->rval = 1;
+                    if (!isptr(temp->type) && !isarith(temp->type))
+                        error(&nd->loc, "increment operator requires real type / pointer type");
+                    else if (!temp->lval || !modifiable_lval(temp->type)) 
+                        error(&nd->loc, "modifiable lvalue required as increment operand");
                     add_child(nd, &temp);
                     return nd;
                 case '&':
                     nd->id = ND_UAND;
                     temp = cast_expression();
+                    nd->lval = 0;
+                    nd->rval = 1;
+                      
+                    if (temp->id != ND_SELECT && temp->id != ND_UDEREF && 
+                        !temp->lval && !(isptr(temp->type) && isfunc(deref(temp->type))))
+                        error(&nd->loc, "invalid operad to '&' operator");
+
+                    // also an error if field with bit size is specified
+                    if (temp->field && temp->field->bitsize) 
+                        error(&nd->loc, "invalid operad to '&' operator");
+
+                    // special case for functions
+                    if (isptr(temp->type) && isfunc(deref(temp->type)))
+                        nd->type = temp->type;
+                    else 
+                        nd->type = make_ptr(temp->type);
+
                     add_child(nd, &temp);
                     return nd;
                 case '*':
                     nd->id = ND_UDEREF;
                     temp = cast_expression();
+                    nd->lval = 1;
+                    nd->rval = 1;
+                    if (!isptr(temp->type)) {
+                        error(&nd->loc, "dereference operator requires operand of pointer type");
+                        nd->type = sinttype;
+                    } else {
+                        if (isfunc(deref(temp->type))) {
+                            nd->type = temp->type;
+                            nd->lval = 0;
+                        } else 
+                            nd->type = deref(temp->type);
+                    }
                     add_child(nd, &temp);
                     return nd;
                 case '+':
                     nd->id = ND_UPLUS;
                     temp = cast_expression();
+                    nd->lval = 0;
+                    nd->rval = 1;
+                    if (!isarith(temp->type)) {
+                        error(&nd->loc, "unary '+' operator requires operand of arithmetic type");
+                        nd->type = sinttype;
+                    } else 
+                        nd->type = promote(temp->type);
                     add_child(nd, &temp);
                     return nd;
                 case '-':
                     nd->id = ND_UMINUS;
                     temp = cast_expression();
+                    nd->lval = 0;
+                    nd->rval = 1;
+                    if (!isarith(temp->type)) {
+                        error(&nd->loc, "unary '-' operator requires operand of arithmetic type");
+                        nd->type = sinttype;
+                    } else 
+                        nd->type = promote(temp->type);
+
                     add_child(nd, &temp);
                     return nd;
                 case '~':
                     nd->id = ND_UBITNOT;
                     temp = cast_expression();
+                    nd->lval = 0;
+                    nd->rval = 1;
+                    if (!isint(temp->type)) {
+                        error(&nd->loc, "unary '~' operator requires operand of integer type");
+                        nd->type = sinttype;
+                    } else {
+                        // first integer promotion is applied to the operand
+                        // the resulting type is the promoted type
+                        temp->type = promote(temp->type);
+                        nd->type = promote(temp->type);
+                    }
+
                     add_child(nd, &temp);
                     return nd;
                 case '!':
                     nd->id = ND_UNOT;
                     temp = cast_expression();
+                    nd->lval = 0;
+                    nd->rval = 1;
+                    if (!isscalar(temp->type)) {
+                        error(&nd->loc, "unary '!' operator requires operand of scalar type");
+                        nd->type = sinttype;
+                    } else 
+                        nd->type = sinttype;
+
                     add_child(nd, &temp);
                     return nd;
                 default:
                     error(&tok->loc, "unknown unaray expression");
                     // escape till FOLLOW(unary_expression)
+                    nd->lval = 0; 
+                    nd->rval = 1;
                     nd->id = ND_CONST;
                     nd->subid = ND_INT;
                     nd->type = sinttype;
@@ -558,27 +681,56 @@ Node unary_expression(){
             switch (tok->subtype) {
                 case SIZEOF:
                     nd = make_node(ND_SIZEOF, PERM);
+                    nd->type = uinttype;
                     nd->loc = tok->loc;
+                    nd->lval = 0; 
+                    nd->rval = 1;
                     Type tc = type_cast(); 
-                    if (tc)
-                        nd->type = tc;
                     tok = lex();
                     if (first(ND_UNARY, tok)) {
                         restore_tok(&tok);
                         temp = unary_expression();
+                        // overwrite temp's type with the cast
+                        if (tc)
+                            temp->type = tc;
                         add_child(nd, &temp);
-                    } else 
+                    } else  {
                         restore_tok(&tok);
+                        temp = make_node(ND_TYPENAME, PERM);
+                        temp->type = tc;
+                        add_child(nd, &temp);
+                        temp->loc = nd->loc;
+                    } 
+                    if ((isptr(temp->type) && isfunc(deref(temp->type))) || 
+                        (!iscomplete(temp->type))) {
+                        error(&nd->loc, 
+                        "sizeof operator cannot be applied to a function type or an incomplete type");
+                    }
+                    if (temp->field && temp->field->bitsize) {
+                        error(&nd->loc, "sizeof operator cannot be applied to a bit-field operand");
+                    }
                     return nd;
-
                 case _ALIGNOF:
                     nd = make_node(ND_ALIGNOF, PERM);
+                    nd->type = uinttype;
                     nd->loc = tok->loc;
-                    nd->type = type_cast();
-                    if (!nd->type) {
-                        nd->type = sinttype;
+                    nd->lval = 0;
+                    nd->rval = 1;
+                    temp = make_node(ND_TYPENAME, PERM);
+                    temp->type = type_cast();
+                    temp->loc = nd->loc;
+                    if (!temp->type) {
                         error(&tok->loc, "expected '(' type name ')' after _Alignof operator");
-                    }
+                        temp->type = sinttype;
+                    } else {
+                        if ((isptr(temp->type) && isfunc(deref(temp->type))) || 
+                            (!iscomplete(temp->type))) {
+                            error(&nd->loc, 
+                            "sizeof operator cannot be applied to a function type or an incomplete type");
+                        }
+                    } 
+                    add_child(nd, &temp);
+
                     return nd; 
                 case _GENERIC:
                     restore_tok(&tok);
@@ -586,6 +738,8 @@ Node unary_expression(){
                 default:
                     error(&tok->loc, "unknown unaray expression");
                     // escape till FOLLOW(unary_expression)
+                    nd->lval = 0;
+                    nd->rval = 1;
                     nd->id = ND_CONST;
                     nd->subid = ND_INT;
                     nd->type = sinttype;
@@ -594,6 +748,8 @@ Node unary_expression(){
         default:
             error(&tok->loc, "unknown unaray expression");
             // escape till FOLLOW(unary_expression)
+            nd->lval = 0;
+            nd->rval = 1;
             nd->id = ND_CONST;
             nd->subid = ND_INT;
             nd->type = sinttype;
@@ -611,8 +767,20 @@ Node cast_expression(){
         restore_tok(&tok);
         tc = type_cast();
         if (tc) {
+            if (tc != voidtype && !isscalar(tc)) {
+                error(&tok->loc, "type case shall either be of void type or scalar type");
+            }
             Node ce = cast_expression();
+            if (!isscalar(ce->type)) {
+                error(&tok->loc, "operand of a type case is required to have scalar type");
+            }
+            if ((isptr(tc) && isdouble(ce->type)) || 
+                (isdouble(tc) && isptr(ce->type))) {
+                error(&tok->loc, "float to pointer / pointer to float conversions are not permitted");
+            }
             ce->type = tc;
+            ce->lval = 0;
+            ce->rval = 1;
             return ce;
         }   
     } else 
@@ -636,6 +804,12 @@ Node multiplicative_expression(){
             mult_expr->loc = tok->loc;
             Node r = cast_expression();
             add_child(mult_expr, &r);
+            if (!isarith(l->type) || !isarith(r->type)) {
+                error(&mult_expr->loc, "both operands of the '*' operator should have arithmetic type");
+                l->type = sinttype;
+                r->type = sinttype;
+            }
+            mult_expr->type = usual_arithmetic_conversion(l->type, r->type);
             l = mult_expr;
         } else if (tok->subtype == DIV) {
             Node div_expr = make_node(ND_DIV, PERM);
@@ -643,6 +817,12 @@ Node multiplicative_expression(){
             div_expr->loc = tok->loc;
             Node r = cast_expression();
             add_child(div_expr, &r);
+            if (!isarith(l->type) || !isarith(r->type))  {
+                error(&div_expr->loc, "both operands of the '/' operator should have arithmetic type");
+                l->type = sinttype;
+                r->type = sinttype;
+            }
+            div_expr->type = usual_arithmetic_conversion(l->type, r->type);
             l = div_expr;
         } else {
             Node mod_expr = make_node(ND_MOD, PERM);
@@ -650,8 +830,16 @@ Node multiplicative_expression(){
             mod_expr->loc = tok->loc;
             Node r = cast_expression();
             add_child(mod_expr, &r);
+            if (!isint(l->type) || !isint(r->type)) {
+                error(&mod_expr->loc, "both operands of the '%' operator should have integer type");
+                l->type = sinttype;
+                r->type = sinttype;
+            }
+            mod_expr->type = usual_arithmetic_conversion(l->type, r->type);
             l = mod_expr;
         }
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -670,6 +858,16 @@ Node additive_expression(){
             add_expr->loc = tok->loc;
             Node r = multiplicative_expression();
             add_child(add_expr, &r);
+            if (isarith(l->type) && isarith(r->type)) {
+                // all good 
+            } else if (isptr(l->type) && iscomplete(deref(l->type)) && isarith(r->type)) {
+                // all good 
+            } else if (isarith(l->type) && isptr(r->type) && iscomplete(deref(r->type))) {
+                // all good 
+            } else {
+                // not so good
+                error(&add_expr->loc, "invalid operands to '+' operator");
+            }
             l = add_expr;
         } else {
             Node sub_expr = make_node(ND_SUB, PERM);
@@ -677,6 +875,21 @@ Node additive_expression(){
             sub_expr->loc = tok->loc;
             Node r = multiplicative_expression();
             add_child(sub_expr, &r);
+            if (isarith(l->type) && isarith(r->type)) {
+                // all good
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible
+                if (!iscomplete(deref(l->type)) || !iscomplete(r->type)) 
+                    error(&sub_expr->loc, "invalid operands to '-' operator");
+                else if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&sub_expr->loc, "invalid operands to '-' operator");
+                // else all good 
+            } else if (isptr(l->type) && isint(r->type)) {
+                // all good 
+            } else {
+                // not so good 
+                error(&sub_expr->loc, "invalid operands to '-' operator");
+            }
             l = sub_expr;
         }
     }

@@ -1,0 +1,38 @@
+int arr[];
+int arr2[3];
+struct {
+    int i;
+    int ii: 1;
+} ss;
+union {
+    int i:2; 
+    char c;
+} u;
+void func(int, int);
+int i;
+struct sp;
+union up;
+
+int main (int argc, char **argv) {
+    // no error 
+    sizeof 1;
+    sizeof 'c';
+    sizeof 1 + 1;
+    sizeof arr2;
+    sizeof *arr2;
+    sizeof *arr;
+    sizeof ss;
+    sizeof u;
+    sizeof i;
+    sizeof (int);
+    sizeof (_Bool);
+    _Alignof (int *);
+    // error
+    sizeof(struct);
+    sizeof ss.ii;
+    sizeof u.i;
+    sizeof func;
+    sizeof arr;
+    _Alignof(struct);
+    
+}

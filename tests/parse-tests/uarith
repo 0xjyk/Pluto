@@ -1,0 +1,35 @@
+char c;
+unsigned char uc;
+signed char sc;
+short s;
+unsigned short us;
+signed short ss;
+int i;
+signed int si;
+unsigned int ui;
+enum {RED, BLUE, GREEN} e;
+float f;
+double d;
+long double ld;
+int *ip;
+void *vp;
+int main(int argc, char argv[]) {
+    // no error
+    +1; -1; ~1; ~1;
+    +'c'; - 'c'; ~'c'; !'c';
+    +c; -c; ~c; !c;
+    + uc; - uc; ~uc; !uc;
+    + sc; - sc; ~sc; !sc;
+    + s; - s; ~s; !s;
+    + us; - us; ~us; !us;
+    + ss; - ss; ~ss; !ss;
+    + i; -i; ~i; !i;
+    + si;-si; ~si;!si;
+    + ui;-ui; ~ui;!ui;
+    + e;-e; ~e;!e;
+    + f; - f; !f;
+    + d; - d;!d;
+    + ld; -ld;!ld;
+    !ip;
+    !vp;
+}

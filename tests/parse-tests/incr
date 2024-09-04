@@ -1,0 +1,31 @@
+
+int main (int argc, char **argv){
+    // no error;
+    int i = 1;
+    const int ci = 1;
+    float f;
+    struct {char c; } ss;
+
+    i++;
+    f++;
+    ss.c++;
+    i--;
+    f--;
+    ss.c--;
+    ++i;
+    ++f;
+    ++ss.c;
+    --i;
+    --f;
+    --ss.c;
+    // error
+    ci++;
+    ss++;
+    c--;
+    ss--;
+    ++ci;
+    --ci;
+    ++ss;
+    --ss;
+
+}

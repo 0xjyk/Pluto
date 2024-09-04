@@ -1,0 +1,55 @@
+#include "decl"
+int main(int argc, char **argv) {
+    // no error
+    c * cc; 
+    c * s; 
+    c * us;
+    c * i;
+    c * ui;
+    c * l;
+    c * ul;
+    c * ll;
+    c * lll;
+    c * ulll;
+    c * f;
+    c * ld;
+    c * e;
+    c / cc; 
+    c / s; 
+    c / us;
+    c / i;
+    c / ui;
+    c / l;
+    c / ul;
+    c / ll;
+    c / lll;
+    c / ulll;
+    c / f;
+    c / ld;
+    c / e;
+    c % cc; 
+    c % s; 
+    c % us;
+    c % i;
+    c % ui;
+    c % l;
+    c % ul;
+    c % ll;
+    c % lll;
+    c % ulll;
+    c % e;
+
+    // error
+    c * vp;
+    c * fp;
+    c * *fp;
+    c / vp;
+    c / fp;
+    c / *fp;
+    c % vp;
+    c % fp;
+    c % *fp;
+    c % f;
+    c % ld;
+
+}

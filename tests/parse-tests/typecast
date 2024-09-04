@@ -1,0 +1,16 @@
+struct s { int i; };
+typedef struct s s;
+int main(int argc, char **argv) {
+    int i; 
+    float f;
+    double d;
+    char c;
+    int arr[3];
+    
+    (int *) i;
+    (s *) i;
+    (int *) arr;
+    (char) i;
+    (char) f;
+    (void *)arr;
+}

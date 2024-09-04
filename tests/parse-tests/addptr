@@ -1,0 +1,12 @@
+
+int main(int argc, char *argv[]) {
+    // no error
+    char *cptr;
+    int **ippter; 
+    int arr[3]; 
+
+    *cptr;
+    *ippter;
+    **ippter;
+    *arr;
+}

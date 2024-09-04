@@ -235,7 +235,7 @@ Type struct_or_union_specifier(){
             restore_tok(&tok);
             error(&tok->loc, "expected struct declaration list in struct/union declaration");
             // error recovery work - return dummy struct/union
-            return make_struct(id, tag, &loc);
+            return make_struct(id, tag, &l);
         }
         restore_tok(&tok);
     } else {
@@ -244,23 +244,22 @@ Type struct_or_union_specifier(){
         if ((tok = lex())->subtype != LCBRAC) {
             restore_tok(&tok);
             Symbol sym = lookup(tag, types);
-            if (!sym) {
-                error(&l, "declared struct/union type doesn't correspond to any previously defined type");
-                return make_struct(id, dtos(genlabel(1)), &l);
-            }
-            return sym->type;
+            if (sym)
+                return sym->type;
+            return make_struct(id, tag, &l);
         }
         restore_tok(&tok);
     }
 
     
-    su = make_struct(id, tag, &loc);
+    su = make_struct(id, tag, &l);
     tok = lex();
 
     // struct definition
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         // struct declaration list
         su->u.sym->u.s.flist = struct_declaration_list(su);
+        su->u.sym->defined = 1;
 
         if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
             error(&tok->loc, "expected '}' at the end of a struct declaration");
@@ -625,7 +624,6 @@ Node init_declarator(Type ds){
         //dd->sym = install(sym->name, &identifiers, GLOBAL, PERM);
         dd->sym->type = sym->type;
         dd->sym->sclass = sym->sclass;
-        dd->sym->defined = 0;
         dd->sym->loc = sym->loc;
         dd->type = sym->type;
         dd->val.strval = sym->name;

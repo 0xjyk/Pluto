@@ -1,0 +1,31 @@
+int func();
+int *func2();
+int **ipptr;
+char *str = "str";
+struct {
+    int i; 
+    int ii: 1;
+} ss;
+int main(int argc, char argv[]) {
+    // no error 
+    &func;
+    (&func2()[0]);
+    &(func2()[1]);
+    &ipptr;
+    &str[1];
+    &str;
+    &ss.i;
+    *func;
+    *str;
+    **ipptr;
+    *func2();    
+    // error
+    &1;
+    &ss.ii;
+    &ipptr++;
+    &++ipptr;
+    &func();
+    *ss.i;
+    *ss.ii;
+    *func();
+}

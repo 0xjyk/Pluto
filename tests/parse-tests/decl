@@ -1,0 +1,20 @@
+    char c, cc;
+    unsigned char uc, ucc;
+    short s, ss;
+    unsigned short us, uss;
+    int i, ii;
+    unsigned ui, uii;
+    long l, ll;
+    unsigned long ul, ull;
+    long long lll, llll;
+    unsigned long long ulll, ullll;
+    float f;
+    double d;
+    long double ld;
+    void *vp;
+    int (*fp) (int, int);
+    int *ip;
+    char *cp;
+    int **ipp;
+    enum {RED, BLUE, GREEN} e;
+

@@ -387,7 +387,7 @@ void typeinit() {
 
     longlongtype = xxinit(SLLONG, NULL, "long long int",  "long long int", 8, 8); 
     slonglongtype = xxinit(SIGNED, longlongtype, "signed", "signed long long int", 8, 8);
-    ulonglongtype =xxinit(UNSIGNED, longlongtype, "unsigned", "unsigned long long int", 8, 8);
+    ulonglongtype = xxinit(UNSIGNED, longlongtype, "unsigned", "unsigned long long int", 8, 8);
 
     floattype = xxinit(FLOAT, NULL, "float", "float", 4, 4); 
     doubletype = xxinit(SDOUBLE, NULL, "double", "double", 8, 8);
@@ -715,3 +715,180 @@ Type fieldtype(Type su, Type f) {
         return update_qual(qualval, f);
     return f;
 }
+
+Type base_type(Type t) {
+    if (!t)
+        return t;
+    t = unqual(t);
+    if (!t)
+        return t;
+    if (isptr(t) || isarray(t))
+        return base_type(t->type);
+    return t;
+}
+
+_Bool is_lval(Symbol s) {
+    // temporary variables aren't lvals
+    if (!s || s->temporary)
+        return 0;
+    Type bt = base_type(s->type);
+    if (bt == voidtype)
+        return 0;
+    // more possible cases
+
+    return 1;
+}
+
+_Bool modifiable_lval(Type t) {
+    // arrays and const qualified types aren't m'lvals
+    if (!t || isarray(t) || isconst(t))
+        return 0;
+    // struct/unions are not modifyable if any member is
+    // const qualified
+    if (!isstructunion(t))
+        return 1;
+    Field f = t->u.sym->u.s.flist;
+    while (f) {
+        if (!modifiable_lval(f->type))
+            return 0;
+        f = f->next;
+    }
+    return 1;
+}
+
+Type promote(Type t) {
+    Type tt = unqual(t);
+    // integer promotion only applies to types that
+    // have a rank lower than (signed) int
+    if (tt == booltype || tt == schartype ||
+        tt == uchartype || tt == shorttype ||
+        tt == sshorttype || tt == ushorttype ||
+        tt == inttype || tt == sinttype)
+        return sinttype;
+    return unqual(t);
+}
+
+_Bool iscomplete(Type t) {
+    if (t == voidtype)
+        return 0;
+    if (isarray(t))
+        if (!unqual(t)->size)
+            return 0;
+    if (isstructunion(t)) {
+        if (!t->u.sym->defined)
+            return 0;
+    } 
+    return 1;
+}
+
+size_t struct_size(Type t) {
+    if (!isstructunion(t))
+        error(&loc, "struct size expected type of sturct or union");
+    // todo - calculate 
+    return 5;
+}
+
+char get_rank(Type t) {
+    // (signed) long long int > (signed) long int > 
+    // (signed) int > (signed) short > signed char  > _Bool
+    // signed and unsigned counter parts have equal ranks
+    if (t == slonglongtype || t == ulonglongtype || t == longlongtype)
+        return 6;
+    if (t == slongtype || t == ulongtype || t == longtype)
+        return 5;
+    if (t == sinttype || t == uinttype || t == inttype)
+        return 4;
+    if (t == sshorttype || t == ushorttype || t == shorttype)
+        return 3;
+    if (t == schartype || t == uchartype || t == chartype)
+        return 2;
+    if (t == sbooltype || t == ubooltype || t == sbooltype)
+        return 1;
+    else 
+        error(&loc, "passed invalid type to get rank");
+    return 0;
+}
+
+Type get_unsigned(Type t) {
+    char rt = get_rank(t); 
+    switch(rt) {
+        case 6: return ulonglongtype;
+        case 5: return ulongtype;
+        case 4: return uinttype;
+        case 3: return ushorttype;
+        case 2: return uchartype;
+        case 1: return ubooltype;
+    }
+    return uinttype;
+}
+
+unsigned long long int get_integer_max(Type t) {
+#define COND(a, b) if (t == a) return b
+    if (t == booltype || t == sbooltype || t == ubooltype)
+        return 1;
+    COND(chartype, CHAR_MAX);
+    COND(uchartype, UCHAR_MAX);
+    COND(schartype, SCHAR_MAX);
+    
+    COND(shorttype, SHRT_MAX);
+    COND(ushorttype, USHRT_MAX);
+    COND(sshorttype, SHRT_MAX); 
+
+    COND(inttype, INT_MAX); 
+    COND(uinttype, UINT_MAX);
+    COND(sinttype, INT_MAX);
+
+    COND(longtype, LONG_MAX);
+    COND(ulongtype, ULONG_MAX);
+    COND(slongtype, LONG_MAX); 
+
+    COND(longlongtype, LLONG_MAX); 
+    COND(ulonglongtype, ULLONG_MAX);
+    COND(slonglongtype, LLONG_MAX);
+#undef COND
+    return 0;
+}
+
+
+Type usual_arithmetic_conversion(Type t1, Type t2) {
+    // qualifiers don't impact uac
+    t1 = unqual(t1); t2 = unqual(t2);
+    if (t1 == longdoubletype || t2 == longdoubletype)
+        return longdoubletype;
+    if (t1 == doubletype || t2 == doubletype)
+        return doubletype;
+    if (t1 == floattype || t2 == floattype)
+        return floattype;
+    t1 = promote(t1); t2 = promote(t2);
+    if (t1 == t2)
+        return t1;
+    if ((isunsigned(t1) && isunsigned(t2)) ||
+         (issigned(t1) && issigned(t2))) {
+        if (get_rank(t1) > get_rank(t2))
+            return t1;
+        return t2;
+    }
+    if (isunsigned(t1) && issigned(t2)) {
+        if (get_rank(t1) >= get_rank(t2))
+            return t1;
+        else if (get_integer_max(t2) >= get_integer_max(t1))
+            return t2;
+        return get_unsigned(t2);
+    // implied isunsigned(t2) && issigned(t1)
+    } else {
+        if (get_rank(t2) >= get_rank(t1))
+            return t2; 
+        else if (get_integer_max(t1) >= get_integer_max(t2))
+            return t1;
+        return get_unsigned(t1);
+    }
+
+}
+
+_Bool iscompatible(Type t1, Type t2) {
+    t1 = unqual(t1); t2 = unqual(t2);
+    if (t1 == t2)
+        return 1;
+    // incomplete todo
+}
+
