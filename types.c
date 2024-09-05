@@ -107,7 +107,7 @@ Type make_ptr(Type t) {
 
 Type deref(Type t) {
     if (isptr(t))
-        t = t->type;
+        t = unqual(t)->type;
     else 
         error(&loc, "type error: attempted to dereference non-pointer type");
     return isenum(t) ? unqual(t)->type : t;
@@ -142,6 +142,43 @@ Type array_type(Type t) {
     if (isptr(t))
         return deref(t);
     return deref(atop(t));
+}
+
+int merge_qual(Type t1, Type t2) {
+    int id = 0;
+    if (isqual(t1)) {
+        switch(t1->id) {
+        case CONST: 
+            id = TQ_CONST; break;
+        case VOLATILE: 
+            id = TQ_VOLATILE; break;
+        case RESTRICT:
+            id = TQ_RESTRICT; break;
+        case CONST+VOLATILE:
+            id = TQ_CONST+TQ_VOLATILE; break;
+        case CONST+RESTRICT:
+            id = TQ_CONST+TQ_RESTRICT; break;
+        case CONST+VOLATILE+RESTRICT:
+            id = TQ_CONST+TQ_VOLATILE+TQ_RESTRICT; break;
+        }
+    }
+    if (isqual(t2)) {
+        switch(t2->id) {
+        case CONST: 
+            id |= TQ_CONST; break;
+        case VOLATILE: 
+            id |= TQ_VOLATILE; break;
+        case RESTRICT:
+            id |= TQ_RESTRICT; break;
+        case CONST+VOLATILE:
+            id |= TQ_CONST+TQ_VOLATILE; break;
+        case CONST+RESTRICT:
+            id |= TQ_CONST+TQ_RESTRICT; break;
+        case CONST+VOLATILE+RESTRICT:
+            id |= TQ_CONST+TQ_VOLATILE+TQ_RESTRICT; break;
+        }
+    }
+    return id;
 }
 
 Type qual(int id, Type t) {
@@ -760,10 +797,11 @@ Type promote(Type t) {
     Type tt = unqual(t);
     // integer promotion only applies to types that
     // have a rank lower than (signed) int
-    if (tt == booltype || tt == schartype ||
-        tt == uchartype || tt == shorttype ||
-        tt == sshorttype || tt == ushorttype ||
-        tt == inttype || tt == sinttype)
+    if (tt == booltype || tt == chartype || 
+        tt == schartype || tt == uchartype || 
+        tt == shorttype || tt == sshorttype || 
+        tt == ushorttype || tt == inttype || 
+        tt == sinttype)
         return sinttype;
     return unqual(t);
 }
@@ -890,5 +928,9 @@ _Bool iscompatible(Type t1, Type t2) {
     if (t1 == t2)
         return 1;
     // incomplete todo
+}
+
+Type composite_type(Type t1, Type t2) {
+    // todo
 }
 

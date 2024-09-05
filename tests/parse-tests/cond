@@ -1,0 +1,22 @@
+#include "decl"
+
+int main(int argc, char **argv) {
+    // expect const void *
+    1 ? c_vp : c_ip;
+    
+    // expect volatile int *
+    1 ? v_ip : 0;
+   
+   // expect const volatile int *
+    1 ? c_ip : v_ip; 
+    
+    // expect const void *
+    1 ? vp : c_cp; 
+
+    // expect const int *
+    1 ? ip : c_ip; 
+
+    // expect void *
+    1  ? vp : ip;
+    
+}

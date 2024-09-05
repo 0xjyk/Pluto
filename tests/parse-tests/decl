@@ -14,7 +14,14 @@
     void *vp;
     int (*fp) (int, int);
     int *ip;
+    int * const cip;
+    int * const volatile cvip;
     char *cp;
     int **ipp;
     enum {RED, BLUE, GREEN} e;
-
+    
+    const void *c_vp;
+    void *vp; 
+    const int *c_ip; 
+    volatile int *v_ip; 
+    const char *c_cp;

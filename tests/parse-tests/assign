@@ -1,0 +1,18 @@
+#include "decl"
+
+
+int main(int argc, char **argv) {
+    f = 2;
+    l = (c = i); 
+
+    const char **cpp; 
+    char *p; 
+    const char c = 'A';
+
+    cpp = &p;
+    *cpp = &c; 
+    *p = 0;
+
+    // error 
+    !f = 2;
+}

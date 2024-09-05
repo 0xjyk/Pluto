@@ -860,13 +860,17 @@ Node additive_expression(){
             add_child(add_expr, &r);
             if (isarith(l->type) && isarith(r->type)) {
                 // all good 
+                add_expr->type = usual_arithmetic_conversion(l->type, r->type);
             } else if (isptr(l->type) && iscomplete(deref(l->type)) && isarith(r->type)) {
                 // all good 
+                add_expr->type = l->type;
             } else if (isarith(l->type) && isptr(r->type) && iscomplete(deref(r->type))) {
                 // all good 
+                add_expr->type = r->type;
             } else {
                 // not so good
                 error(&add_expr->loc, "invalid operands to '+' operator");
+                add_expr->type = sinttype;
             }
             l = add_expr;
         } else {
@@ -877,21 +881,27 @@ Node additive_expression(){
             add_child(sub_expr, &r);
             if (isarith(l->type) && isarith(r->type)) {
                 // all good
+                sub_expr->type = usual_arithmetic_conversion(l->type, r->type);
             } else if (isptr(l->type) && isptr(r->type)) {
                 // both types should be compatible
-                if (!iscomplete(deref(l->type)) || !iscomplete(r->type)) 
+                if (!iscomplete(deref(l->type)) || !iscomplete(deref(r->type)))
                     error(&sub_expr->loc, "invalid operands to '-' operator");
                 else if (!iscompatible(deref(l->type), deref(r->type))) 
                     error(&sub_expr->loc, "invalid operands to '-' operator");
+                sub_expr->type = sinttype;
                 // else all good 
             } else if (isptr(l->type) && isint(r->type)) {
                 // all good 
+                sub_expr->type = l->type;
             } else {
                 // not so good 
                 error(&sub_expr->loc, "invalid operands to '-' operator");
+                sub_expr->type = sinttype;
             }
             l = sub_expr;
         }
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -910,6 +920,11 @@ Node shift_expression(){
             lshft_expr->loc = tok->loc;
             Node r = additive_expression();
             add_child(lshft_expr, &r);
+            if (!isint(l->type) || !isint(r->type)) {
+                error(&lshft_expr->loc, "invalid operands to '<<' operator");
+                lshft_expr->type = sinttype;
+            } else 
+                lshft_expr->type = promote(l->type);
             l = lshft_expr;
         } else {
             Node rshft_expr = make_node(ND_RSHFT, PERM);
@@ -917,8 +932,15 @@ Node shift_expression(){
             rshft_expr->loc = tok->loc;
             Node r = additive_expression();
             add_child(rshft_expr, &r);
+            if (!isint(l->type) || !isint(r->type)) {
+                error(&rshft_expr->loc, "invalid operands to '>>' operator");
+                rshft_expr->type = sinttype;
+            } else 
+                rshft_expr->type = promote(l->type); 
             l = rshft_expr;
         }
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -940,6 +962,17 @@ Node relational_expression(){
             less_expr->loc = tok->loc;
             Node r = shift_expression();
             add_child(less_expr, &r);
+            less_expr->type = sinttype;
+            if (isreal(l->type) && isreal(r->type)) {
+                // all good 
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible
+                if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&less_expr->loc, "invalid operands to '<' operator");
+            } else {
+                // not so good 
+                error(&less_expr->loc, "invalid operands to '<' operator");
+            }
             l = less_expr;
         } else if (tok->subtype == GREATER) {
             Node greater_expr = make_node(ND_GREATER, PERM);
@@ -947,13 +980,36 @@ Node relational_expression(){
             greater_expr->loc = tok->loc;
             Node r = shift_expression();
             add_child(greater_expr, &r);
+            greater_expr->type = sinttype;
+            if (isreal(l->type) && isreal(r->type)) {
+                // all good 
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible
+                if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&greater_expr->loc, "invalid operands to '>' operator");
+            } else {
+                // not so good 
+                error(&greater_expr->loc, "invalid operands to '>' operator");
+            }
             l = greater_expr;
+
         } else if (tok->subtype == LEQ) {
             Node leq_expr = make_node(ND_LEQ, PERM);
             add_child(leq_expr, &l);
             leq_expr->loc = tok->loc;
             Node r = shift_expression();
             add_child(leq_expr, &r);
+            leq_expr->type = sinttype;
+            if (isreal(l->type) && isreal(r->type)) {
+                // all good 
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible
+                if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&leq_expr->loc, "invalid operands to '<=' operator");
+            } else {
+                // not so good 
+                error(&leq_expr->loc, "invalid operands to '<=' operator");
+            }
             l = leq_expr;
         } else {
             Node geq_expr = make_node(ND_GEQ, PERM);
@@ -961,8 +1017,21 @@ Node relational_expression(){
             geq_expr->loc = tok->loc;
             Node r = shift_expression();
             add_child(geq_expr, &r);
+            geq_expr->type = sinttype;
+            if (isreal(l->type) && isreal(r->type)) {
+                // all good 
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible
+                if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&geq_expr->loc, "invalid operands to '>=' operator");
+            } else {
+                // not so good 
+                error(&geq_expr->loc, "invalid operands to '>=' operator");
+            }
             l = geq_expr;
         }
+        l->lval = 0;
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -981,6 +1050,23 @@ Node equality_expression(){
             eq_expr->loc = tok->loc;
             Node r = relational_expression();
             add_child(eq_expr, &r);
+            eq_expr->type = sinttype;
+            if (isarith(l->type) && isarith(r->type)) {
+                // all good
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible 
+                if ((deref(l->type) != voidtype && deref(r->type) == voidtype) || 
+                    (deref(l->type) == voidtype && deref(r->type) != voidtype)) {
+                    // all good 
+                } else if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&eq_expr->loc, "invalid operands to '==' operator");
+            } else if (isptr(l->type) && r->id == ND_CONST && r->val.intval.i == 0) {
+                // all good 
+            } else if (l->id == ND_CONST && l->val.intval.i == 0 && isptr(r->type)) {
+                // all good
+            } else
+                // not so good 
+                error(&eq_expr->loc, "invalid operads to '==' operator");
             l = eq_expr;
         } else {
             Node neq_expr = make_node(ND_NEQ, PERM);
@@ -988,8 +1074,28 @@ Node equality_expression(){
             neq_expr->loc = tok->loc;
             Node r = relational_expression();
             add_child(neq_expr, &r);
+            neq_expr->type = sinttype;
+             if (isarith(l->type) && isarith(r->type)) {
+                // all good
+            } else if (isptr(l->type) && isptr(r->type)) {
+                // both types should be compatible 
+                if ((deref(l->type) != voidtype && deref(r->type) == voidtype) || 
+                    (deref(l->type) == voidtype && deref(r->type) != voidtype)) {
+                    // all good 
+                } else if (!iscompatible(deref(l->type), deref(r->type))) 
+                    error(&neq_expr->loc, "invalid operands to '!=' operator");
+            } else if (isptr(l->type) && r->id == ND_CONST && r->val.intval.i == 0) {
+                // all good 
+            } else if (l->id == ND_CONST && l->val.intval.i == 0 && isptr(r->type)) {
+                // all good
+            } else
+                // not so good 
+                error(&neq_expr->loc, "invalid operads to '!=' operator");
+
             l = neq_expr;
         }
+        l->lval = 0; 
+        l->rval = 1;
 
     }
     restore_tok(&tok);
@@ -1006,7 +1112,15 @@ Node AND_expression(){
         band_expr->loc = tok->loc;
         Node r = equality_expression();
         add_child(band_expr, &r);
+        if (!isint(l->type) || !isint(r->type)) {
+            error(&band_expr->loc, "invalid operands to '&' operator");
+            band_expr->type = sinttype;
+        } else {
+            band_expr->type = usual_arithmetic_conversion(l->type, r->type);
+        }
         l = band_expr;
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -1022,7 +1136,15 @@ Node exclusive_OR_expression(){
         xor_expr->loc = tok->loc;
         Node r = exclusive_OR_expression();
         add_child(xor_expr, &r);
+        if (!isint(l->type) || !isint(r->type)) {
+            error(&xor_expr->loc, "invalid operands to '^' operator");
+            xor_expr->type = sinttype;
+        } else {
+            xor_expr->type = usual_arithmetic_conversion(l->type, r->type);
+        }
         l = xor_expr;
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -1038,7 +1160,16 @@ Node inclusive_OR_expression(){
         ior_expr->loc = tok->loc;
         Node r = exclusive_OR_expression();
         add_child(ior_expr, &r);
+        if (!isint(l->type) || !isint(r->type)) {
+            error(&ior_expr->loc, "invalid operands to '|' operator");
+            ior_expr->type = sinttype;
+        } else {
+            ior_expr->type = usual_arithmetic_conversion(l->type, r->type);
+        }
+
         l = ior_expr;
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -1050,11 +1181,17 @@ Node logical_AND_expression(){
     Token tok;
     while ((tok = lex())->type == PUNCT && tok->subtype == AND) {
         Node and_expr = make_node(ND_AND, PERM);
+        and_expr->type = sinttype;
         add_child(and_expr, &l);
         and_expr->loc = tok->loc;
         Node r = inclusive_OR_expression();
         add_child(and_expr, &r);
+        if (!isscalar(l->type) || !isscalar(r->type)) {
+            error(&and_expr->loc, "invalid operands to '&&' operator");
+        }
         l = and_expr;
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -1066,11 +1203,17 @@ Node logical_OR_expression(){
     Token tok;
     while ((tok = lex())->type == PUNCT && tok->subtype == OR) {
         Node or_expr = make_node(ND_OR, PERM);
+        or_expr->type = sinttype;
         add_child(or_expr, &l);
         or_expr->loc = tok->loc;
         Node r = logical_AND_expression();
         add_child(or_expr, &r);
+        if (!isscalar(l->type) || !isscalar(r->type)) {
+            error(&or_expr->loc, "invalid operands to '||' operator");
+        }
         l = or_expr;
+        l->lval = 0; 
+        l->rval = 1;
     }
     restore_tok(&tok);
     return l;
@@ -1081,6 +1224,9 @@ Node conditional_expression(){
     Node pred = logical_OR_expression();
     Token tok;
     if ((tok = lex())->type == PUNCT && tok->subtype == Q) {
+        if (!isscalar(pred->type)) {
+            error(&pred->loc, "first operand of the conditional operator is required to have scalar type");
+        }
         Node cond_expr = make_node(ND_COND, PERM);
         add_child(cond_expr, &pred);
         cond_expr->loc = tok->loc;
@@ -1088,9 +1234,41 @@ Node conditional_expression(){
         add_child(cond_expr, &expr1);
         if ((tok = lex())->type != PUNCT || tok->subtype != COL) {
             // error required ':'
+            error(&tok->loc, "expected ':' in conditional expression");
+            restore_tok(&tok);
         }
         Node expr2 = conditional_expression();
         add_child(cond_expr, &expr2);
+        if (isarith(expr1->type) && isarith(expr2->type)) {
+            // all good
+            cond_expr->type = usual_arithmetic_conversion(expr1->type, expr2->type); 
+        } else if (isstructunion(expr1->type) && isstructunion(expr2->type) &&
+                expr1->type == expr2->type) {
+            // all good
+            cond_expr->type = expr1->type;
+        } else if (expr1->type == voidtype && expr2->type == voidtype) {
+            // all good
+            cond_expr->type = voidtype;
+        } else if (isptr(expr1->type) && isptr(expr2->type) && 
+            iscompatible(unqual(deref(expr1->type)), unqual(deref(expr2->type)))) {
+            // all good - result is apt qualed composite type
+            cond_expr->type = composite_type(unqual(deref(expr1->type)), unqual(deref(expr1->type)));
+            cond_expr->type = qual(merge_qual(deref(expr1->type), deref(expr2->type)), cond_expr->type);
+            cond_expr->type = make_ptr(cond_expr->type);
+        } else if ((isptr(expr1->type) && expr2->id == ND_CONST && expr2->val.intval.i == 0) ||
+                   (isptr(expr2->type) && expr1->id == ND_CONST && expr1->val.intval.i == 0)) {
+            // all good
+            cond_expr->type = expr1->id == ND_CONST ? expr2->type : expr1->type;
+        } else if ((isptr(expr1->type) && isptr(expr2->type)) && 
+                ((unqual(deref(expr1->type)) == voidtype && unqual(deref(expr2->type)) != voidtype) ||
+                 (unqual(deref(expr2->type)) == voidtype && unqual(deref(expr1->type)) != voidtype))) {
+            // all good
+            cond_expr->type = unqual(deref(expr1->type)) == voidtype ? expr1->type : expr2->type;
+        } else {
+            error(&cond_expr->loc, "incompatible types in expr1 and expr2 of conditional expression");
+        }
+        cond_expr->lval = 0; 
+        cond_expr->rval = 1;
         return cond_expr;
     }
     restore_tok(&tok);
@@ -1106,78 +1284,219 @@ Node assignment_expression(){
             restore_tok(&tok);
             return l;
         }
-        Node assign_expr = make_node(ND_ASSIGNEXPR, PERM);
-        assign_expr->loc = tok->loc;
-        add_child(assign_expr, &l);
+        Node assign_expr; 
         Node r;
         switch (tok->subtype) {
             case ASSIGN:
-                assign_expr->subid = ND_ASSIGN;
+                assign_expr = make_node(ND_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
+                
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!l->lval || !modifiable_lval(l->type)) 
+                    error(&assign_expr->loc, 
+                    "assingment operator '=' expects it's left operand to be a modifiable lval");
+                if (isarith(l->type) && isarith(r->type)) {
+                    // all good
+                } else if (isstructunion(l->type) && isstructunion(r->type) 
+                        && iscompatible(l->type, r->type)) {
+                    // all good
+                } else if (isptr(l->type) && isptr(r->type) &&
+                        iscompatible(unqual(deref(l->type)), unqual(deref(r->type)))) {
+                    // additional check required - deref(l) has all qual that deref(r) has
+                } else if (isptr(l->type) && isptr(r->type) && 
+                        ((unqual(deref(l->type)) == voidtype && unqual(deref(r->type)) != voidtype) ||
+                        (unqual(deref(r->type)) == voidtype && unqual(deref(l->type)) != voidtype))) {
+                    // additional check required - deref(l) has all qual that deref(r) has
+                } else if (isptr(l->type) && r->id == ND_CONST && l->val.intval.i == 0) {
+                    // all good 
+                } else if (isbool(l->type) && isptr(r->type)) {
+                    // all good
+                } else {
+                    error(&assign_expr->loc, "incompatible types in '=' assignment expression");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
                 return assign_expr;
             case MULTEQ:
-                assign_expr->subid = ND_MULT_ASSIGN;
+                assign_expr = make_node(ND_MULT_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isarith(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '*=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
                 return assign_expr;
 
             case DIVEQ:
-                assign_expr->subid = ND_DIV_ASSIGN;
+                assign_expr = make_node(ND_DIV_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isarith(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '/=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case MODEQ:
-                assign_expr->subid = ND_MOD_ASSIGN;
+                assign_expr = make_node(ND_MOD_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isarith(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '%=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case INCREQ:
-                assign_expr->subid = ND_INCR_ASSIGN;
+                assign_expr = make_node(ND_INCR_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (isptr(l->type) && iscomplete(unqual(deref(l->type))) && isint(r->type)) {
+                    // all good
+                } else if (isarith(l->type) && isarith(r->type)) {
+                    // all good
+                } else {
+                    error(&assign_expr->loc, "incompatible types in '+=' assignment expression");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
                 return assign_expr;
             case DECREQ:
-                assign_expr->subid = ND_DECR_ASSIGN;
+                assign_expr = make_node(ND_DECR_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (isptr(l->type) && iscomplete(unqual(deref(l->type))) && isint(r->type)) {
+                    // all good
+                } else if (isarith(l->type) && isarith(r->type)) {
+                    // all good
+                } else {
+                    error(&assign_expr->loc, "incompatible types in '+=' assignment expression");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case LSHFTEQ:
-                assign_expr->subid = ND_LSHFT_ASSIGN;
+                assign_expr = make_node(ND_LSHFT_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isint(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '<<=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case RSHFTEQ:
-                assign_expr->subid = ND_RSHFT_ASSIGN;
+                assign_expr = make_node(ND_RSHFT_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isint(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '>>=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case ANDEQ:
-                assign_expr->subid = ND_AND_ASSIGN;
+                assign_expr = make_node(ND_AND_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isint(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '&=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case XOREQ:
-                assign_expr->subid = ND_XOR_ASSIGN;
+                assign_expr = make_node(ND_XOR_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isint(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '^=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             case OREQ:
-                assign_expr->subid = ND_OR_ASSIGN;
+                assign_expr = make_node(ND_OR_ASSIGN, PERM);
+                assign_expr->loc = tok->loc;
+                add_child(assign_expr, &l);
+                // lval conversion disregards qualifiers
+                assign_expr->type = unqual(l->type);
                 r = assignment_expression();
                 add_child(assign_expr, &r);
+                if (!isarith(l->type) || !isint(r->type)) {
+                    error(&assign_expr->loc, 
+                    "left operand of '|=' assignment expression is required to have arithmetic type");
+                }
+                assign_expr->lval = 0; 
+                assign_expr->rval = 1;
+
                 return assign_expr;
             default:
                 restore_tok(&tok);
                 return l;
         }
-        r = assignment_expression();
-        add_child(assign_expr, &r);
-        return assign_expr;
+        //r = assignment_expression();
+        //add_child(assign_expr, &r);
+        //return assign_expr;
     }
     return l;
 }
-
+/*
 Node expression(){
     // assignment_expression
     // expression , assignment_expression
@@ -1198,6 +1517,30 @@ Node expression(){
     restore_tok(&tok);
     return expr;
 }
+*/
+
+Node expression() {
+    // assignment_expression
+    // expression , assignment_expression
+    Node expr = make_node(ND_EXPR, PERM);
+    Node assign_expr; 
+    Token tok; 
+    Type t;
+    do {
+        assign_expr = assignment_expression(); 
+        t = assign_expr->type;
+        add_child(expr, &assign_expr); 
+        if (expr->num_kids == 1) 
+            expr->loc = assign_expr->loc;
+    } while ((tok = lex())->subtype == COM); 
+    // the last expressions type is used as the type of the entire set of expressions
+    expr->type = t;
+    expr->lval = 0; 
+    expr->rval = 1;
+    restore_tok(&tok); 
+    return expr;
+}
+
 
 Node constant_expression(){
     return conditional_expression();

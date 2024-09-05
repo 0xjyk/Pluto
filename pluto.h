@@ -413,6 +413,7 @@ Type atop(Type t);
 Type array_type(Type t);
 Type deref(Type t);
 Field make_field(char *name, Type t, Type ft);
+int merge_qual(Type t1, Type t2);
 Type qual(int id, Type t);
 int isqual(Type t);
 void rmtypes(int lev);
@@ -434,6 +435,7 @@ Type promote(Type t);
 _Bool iscomplete(Type t);
 Type usual_arithmetic_conversion(Type t1, Type t2);
 _Bool iscompatible(Type t1, Type t2);
+Type composite_type(Type t1, Type t2);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))
@@ -446,6 +448,7 @@ _Bool iscompatible(Type t1, Type t2);
 #define isunion(t)          (unqual(t)->id == UNION)
 #define isfunc(t)           (unqual(t)->id == FUNCTION)
 #define isptr(t)            (unqual(t)->id == POINTER)
+#define isbool(t)           (unqual(t)->id == _BOOL)
 #define ischar(t)           ((unqual(t)->id == SIGNED && unqual(t)->type->id == CHAR) || \
                              (unqual(t)->id == UNSIGNED && unqual(t)->type->id == CHAR) || \
                              unqual(t)->id == CHAR)

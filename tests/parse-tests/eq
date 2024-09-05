@@ -1,0 +1,20 @@
+#include "decl"
+
+int main(int argc, char **argv) {
+    // no error
+    cip == ip;
+    cvip == ip;
+    vp == ip;
+    vp == 0; 
+    ip == ip;
+    vp == vp;
+    ipp == 0;
+    ipp == 0x0;
+    fp == 0x0;
+   
+   // error
+    vp <= 0;
+    ipp < ip;
+    ipp == ip;
+    fp == 0x1;
+}
