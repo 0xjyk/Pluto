@@ -1,0 +1,15 @@
+/*
+int ** const volatile restrict ip;
+int * restrict irarr[];
+_Atomic (int) int i;
+*/
+typedef const int ic;
+
+ic func();
+ic iii;
+
+typedef extern static auto register esar;
+typedef extern int i;
+_Noreturn abort();
+
+static int func();

@@ -181,6 +181,7 @@ typedef struct field *Field;
 typedef struct field {
     char *name; 
     Type type;
+    location loc;
     char sclass:6;
     int offset; 
     short bitsize;
@@ -454,7 +455,7 @@ Type composite_type(Type t1, Type t2);
                              unqual(t)->id == CHAR)
 #define isint(t)            (unqual(t)->id >= CHAR \
                             && unqual(t)->id <= SIGNED \
-                            || unqual(t)->id == ENUM)
+                            || unqual(t)->id == ENUM || isbool(t))
 #define isreal(t)           (isint(t) || \
                             (unqual(t)->id == FLOAT) || \
                             (unqual(t)->id == SDOUBLE) || \

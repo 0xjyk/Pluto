@@ -84,13 +84,14 @@ Node assignment_expression();
 Node expression();
 Node constant_expression();
 Node enumeration_constant();
-
+unsigned long long int intconstexpr();
 // declarations.c
 Node declaration();
 Type declaration_specifiers();
 int storage_class_specifier(struct dec_spec *ds);
 int type_specifier(struct dec_spec *ds, Type *t);
 Type struct_or_union_specifier();
+void check_struct_decl(Type su);
 Field struct_declaration_list(Type su);
 Field struct_declaration(Type su);
 Type specifier_qualifier_list();

@@ -93,7 +93,9 @@ void preprocess() {
             exit(EXIT_FAILURE);
         }
         // Utilise GNU cpp to preprocess 
-        char *pp[] = {"cpp", "-E", "-std=c11", infiles[i], "-o", pp_file, NULL};
+        char *pp[] = {"cpp", 
+            "-E",
+            "-std=c11", infiles[i], "-o", pp_file, NULL};
         pid_t pid = fork(); 
         if (pid < 0) 
             fprintf(stderr, "coudln't preprocess 0 %s\n", infiles[i]);

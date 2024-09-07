@@ -176,13 +176,9 @@ void print_node(Node n, int indent) {
         break;
         }
         break;
-    case ND_SAD: 
+    case ND_SAD: case ND_DECL_LIST: case ND_COMPOUND:
         printf("|-- %s <line:%d, col:%d>\n", node_map[n->id - 256], \
                 n->loc.y, n->loc.x);
-        break;
-    case ND_ASSIGNEXPR: 
-        printf("|-- %s:%s <line:%d, col:%d>\n", node_map[n->id - 256], \
-                    node_map[n->subid - 256], n->loc.y, n->loc.x);
         break;
     default:
         printf("|-- %s [type: %s] <line:%d, col:%d>\n", node_map[n->id - 256], \
@@ -270,7 +266,7 @@ _Bool first(int id, Token tok) {
     switch(id) {
         case ND_DS: 
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _NORETURN) || 
-                    (tok->type == ID && typedef_name(tok)))
+                    tok->subtype == _BOOL || (tok->type == ID && typedef_name(tok)))
                     return 1;
             break;
         case ND_DECL:
@@ -279,7 +275,7 @@ _Bool first(int id, Token tok) {
             break;
         case ND_TYPENAME:
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _ATOMIC) || 
-                    (tok->type == ID && typedef_name(tok)))
+                    tok->subtype == _BOOL || (tok->type == ID && typedef_name(tok)))
                     return 1;
             break;
         case ND_UNARY: case ND_EXPR:

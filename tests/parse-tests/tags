@@ -1,0 +1,36 @@
+/*
+struct tag;
+struct tag;
+struct tag {int i;};
+struct tag {int ii; };
+union tag {int iii; };
+enum tag {i, ii, iii, iiii};
+
+union tt {int i; int i;};
+struct tt;
+enum tt;
+enum hue { chartreuse, burgundy, claret=20, winedark }; 
+enum hue { teal };
+struct ss { int i; };
+struct ss { int c; };
+
+typedef struct tnode TNODE; 
+
+struct tnode { int count; TNODE *left, *right; }; 
+
+
+TNODE s, *sp; 
+int main() {
+    struct ss { int i; };
+    enum hue { teal };
+    enum hue col, *cp; 
+    col = claret; 
+    cp = &col;
+}
+
+*/
+
+struct s0 { enum e *ep; } s0; 
+enum e { teal };
+struct s1 { struct s2 *s2p; } s1;
+struct s2 { struct s1 *s1p; } s2;

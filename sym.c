@@ -25,15 +25,15 @@ unsigned int level = GLOBAL;
 static table cns = {.level = CONSTANTS, .prev = NULL, .all = NULL};
 // initialize identifiers, globals, externals with global level
 static table ext = {.level = GLOBAL, .prev = NULL, .all = NULL};
-static table glb = {.level = GLOBAL, .prev = NULL, .all = NULL};
 static table idn = {.level = GLOBAL, .prev = NULL, .all = NULL};
 static table typ = {.level = GLOBAL, .prev = NULL, .all = NULL};
 
 Table constants = &cns;
 Table external = &ext;
-Table globals = &glb;
+Table globals = &idn;
 Table identifiers = &idn;
 Table types = &typ;
+// table is created an destroyed for each function
 Table labels;
 
 /*

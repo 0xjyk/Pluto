@@ -198,6 +198,8 @@ Type qual(int id, Type t) {
             id = TQ_CONST+TQ_VOLATILE; break;
         case CONST+RESTRICT:
             id = TQ_CONST+TQ_RESTRICT; break;
+        case VOLATILE+RESTRICT:
+            id = TQ_VOLATILE+TQ_RESTRICT; break;
         case CONST+VOLATILE+RESTRICT:
             id = TQ_CONST+TQ_VOLATILE+TQ_RESTRICT; break;
     }
@@ -217,6 +219,9 @@ Type qual(int id, Type t) {
         case TQ_CONST + TQ_RESTRICT:
             return make_type(CONST+RESTRICT, t, 0, 0, NULL, 
                     make_string("const restrict", 14));
+        case TQ_VOLATILE + TQ_RESTRICT:
+            return make_type(VOLATILE+RESTRICT, t, 0, 0, NULL, 
+                    make_string("volatile restrict", 17));
         case TQ_CONST + TQ_RESTRICT + TQ_VOLATILE:
             return make_type(CONST+VOLATILE+RESTRICT, t, 0, 0, NULL, 
                     make_string("const volatile restrict", 23));
@@ -239,11 +244,13 @@ int isqual(Type t) {
     }
     return 0;
 }
-
 Type make_func(Type t, Vector proto) {
     if (t && (isarray(t) || isfunc(t)))
         error(&loc, "illegal return type"); 
-    t = make_type(FUNCTION, t, 0, 0, NULL, make_string("function", 8));
+    if (t)
+        t = make_type(FUNCTION, unqual(t), 0, 0, NULL, make_string("function", 8));
+    else 
+        t = make_type(FUNCTION, t, 0, 0, NULL, make_string("function", 8));
     t->u.f.proto = proto;
     return t;
 }
@@ -297,7 +304,7 @@ Field make_field(char *name, Type t, Type ft) {
         name = dtos(genlabel(1));
     for (p = *q; p; q = &p->next, p = *q)
         if (p->name == name)
-            error(&loc, "attempted to create struct with duplicate field");
+            error(&loc, "attempted to create struct/union with duplicate field");
     p = alloc(sizeof(field), PERM);
     *q = p; 
     p->name = name;
@@ -502,6 +509,21 @@ char *array_to_string(Type t) {
     return str;
 }
 
+char *structname(Type t) {
+    char *str = alloc(100, PERM);
+    *str = '\0';
+    // print type specifier, type qualifier and keyword
+    if (isqual(t)) {
+        strcat(str, t->strrep);  
+        strcat(str, " ");
+        t = t->type;    
+    }
+    strcat(str, t->strrep);
+    strcat(str, " ");
+    strcat(str, t->u.sym->name);
+    return str;
+}
+
 char *ttos(Type t) {
     char *str = alloc(200, PERM);
     *str = '\0';
@@ -528,7 +550,10 @@ char *ttos(Type t) {
                 cnt++; 
                 t = t->type;
             }
-            strcat(str, ttos(t->type));
+            if (isstructunion(t->type)) 
+                strcat(str, structname(t->type));
+            else 
+                strcat(str, ttos(t->type));
             strcat(str, " ");
             for (int i = 0; i < cnt; i++) 
                 strcat(str, "*");

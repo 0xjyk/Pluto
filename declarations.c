@@ -194,7 +194,11 @@ int type_specifier(struct dec_spec *ds, Type *t){
             ds->ts |= TS_COMPLEX; return 1;
         case _ATOMIC:
             // only handle atomic type specifier
-            ds->ts |= TQ_ATOMIC; return 1;
+            if (type_cast()) {
+                ds->ts |= TS_ATOMIC;
+                return 1;
+            }
+            return 0;
         case STRUCT: case UNION:
             if (*t)
                 error(&tok->loc, "type error: attempting to make more than one struct declaration");
@@ -230,11 +234,12 @@ Type struct_or_union_specifier(){
 
     // If tag wasn't defined and struct declaration list wasn't defined either, error
     if (!*tag) {
-        tag = dtos(genlabel(1));
+        //tag = dtos(genlabel(1));
         if ((tok = lex())->subtype != LCBRAC) {
             restore_tok(&tok);
             error(&tok->loc, "expected struct declaration list in struct/union declaration");
             // error recovery work - return dummy struct/union
+            tag = dtos(genlabel(1));
             return make_struct(id, tag, &l);
         }
         restore_tok(&tok);
@@ -244,31 +249,43 @@ Type struct_or_union_specifier(){
         if ((tok = lex())->subtype != LCBRAC) {
             restore_tok(&tok);
             Symbol sym = lookup(tag, types);
+            if (sym && unqual(sym->type)->id != id)
+                error(&tok->loc, "two declarations of the same tag should use the same type");
             if (sym)
                 return sym->type;
             return make_struct(id, tag, &l);
         }
         restore_tok(&tok);
     }
-
-    
     su = make_struct(id, tag, &l);
     tok = lex();
-
     // struct definition
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         // struct declaration list
         su->u.sym->u.s.flist = struct_declaration_list(su);
         su->u.sym->defined = 1;
-
         if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
             error(&tok->loc, "expected '}' at the end of a struct declaration");
             restore_tok(&tok);
         }
-
     } else 
         restore_tok(&tok);
+    check_struct_decl(su);
     return su;
+}
+
+void check_struct_decl(Type su) {
+    Field fd = su->u.sym->u.s.flist;
+    Type t;
+    while (fd) {
+        t = fd->type; 
+        if ((!iscomplete(t) || isfunc(t)) && (!isarray(t) || fd->next)) {
+            error(&loc, "struct/union cannot contain a member with incomplete or function type");
+            t = sinttype;
+        }
+        // todo assign offsets to each field
+        fd = fd->next;
+    }
 }
 
 Field struct_declaration_list(Type su){
@@ -358,7 +375,8 @@ Type specifier_qualifier_list() {
             continue;
     }
     if (!(t || ds.ts || ds.tq)) {
-        error(&tok->loc, "type error: expected type specifier or type qualifier in struct member declaration");
+        error(&tok->loc, 
+        "type error: expected type specifier or type qualifier in struct member declaration");
         restore_tok(&tok);
         return sinttype;
     }
@@ -384,16 +402,20 @@ Field struct_declarator(Type su, Type sql){
 
     // convert sym to field
     Field fd = make_field(sym->name, su, sym->type);
+    fd->loc = tok->loc;
 
     // define bit width if declaration contains bit width
     if (tok->type == PUNCT && tok->subtype == COL) {
-        tok = lex(); 
-        if (tok->type != INTCONST && tok->type != UCHAR) {
-            restore_tok(&tok);
-            error(&tok->loc, "expected interger constant expression in struct bit-width specifier");
-        } else 
-            // incorrect, fix later
-            fd->bitsize = tok->val.charval.c;
+        if (!isint(fd->type)) {
+            error(&fd->loc, "bit-field members are required to have integer type");
+            fd->type = sinttype;
+        }
+        fd->bitsize = intconstexpr();
+        if (fd->bitsize > (unqual(fd->type)->size * 8)|| fd->bitsize < 0) {
+            fd->bitsize = 1;
+            error(&fd->loc, 
+            "bit-field shall be a nonnegative value that doesn't exceed the width of the member");
+        }
     } else 
         restore_tok(&tok);
     return fd;
@@ -411,9 +433,24 @@ Type enum_specifier(){
     // extract tag
     char *tag = make_string("", 0);
     tok = lex();
-    if (tok->type == ID)
+    if (tok->type == ID) {
         tag = tok->val.strval;
-    else {
+        // tag was defined and struct isn't being defined, 
+        // lookup and return previously defined tag
+        if ((tok = lex())->subtype != LCBRAC) {
+            restore_tok(&tok);
+            Symbol sym = lookup(tag, types);
+            if (!sym) {
+                error(&tok->loc, "type specifier 'enum identifier' doesn't correspond to a complete type");
+            }
+            if (sym && unqual(sym->type)->id != ENUM)
+                error(&tok->loc, "two declarations of the same tag should use the same type");
+            if (sym)
+                return sym->type;
+            return make_struct(ENUM, tag, &l);
+        }
+        restore_tok(&tok);
+    } else {
         restore_tok(&tok);
         tag = dtos(genlabel(1));
     }
@@ -421,6 +458,7 @@ Type enum_specifier(){
     tok = lex();
     if (tok->type == PUNCT && tok->subtype == LCBRAC) {
         enumerator_list(enm);
+        enm->u.sym->defined = 1;
         if ((tok = lex())->type != PUNCT || tok->subtype != RCBRAC) {
             error(&tok->loc, "expected '}' at the end of a struct declaration");
             restore_tok(&tok);
@@ -435,6 +473,12 @@ void enumerator_list(Type enm){
     Token tok; 
     int member_val = 0;
     do {
+        tok = lex(); 
+        if (tok->subtype == RCBRAC) {
+            restore_tok(&tok);
+            return;
+        } else 
+            restore_tok(&tok);
         member_val = enumerator(enm, member_val);
     } while ((tok = lex())->subtype == COM);
     restore_tok(&tok);
@@ -455,7 +499,11 @@ int enumerator(Type enm, int member_val){
     if ((tok = lex())->subtype != ASSIGN) {
         restore_tok(&tok);
         // assign value and add to table
-        Symbol sym = install(emem, &identifiers, level, PERM);
+        Symbol sym = lookup(emem, identifiers); 
+        if (sym && sym->scope == level) 
+            error(&tok->loc, "attempted to redeclare identifier in enum declaration");
+        sym = install(emem, &identifiers, level, PERM);
+        sym->type = sinttype;
         sym->u.c.v.i = member_val;
         return ++member_val;
     }
@@ -466,7 +514,11 @@ int enumerator(Type enm, int member_val){
     } else 
         member_val = tok->val.intval.i;
     // assign value and add to table 
-    Symbol sym = install(emem, &identifiers, level, PERM);
+    Symbol sym = lookup(emem, identifiers); 
+    if (sym)
+        error(&tok->loc, "attempted to redeclare identifier in enum declaration");
+    sym = install(emem, &identifiers, level, PERM);
+    sym->type = sinttype;
     sym->u.c.v.i = member_val;
     return ++member_val;
 }
@@ -539,8 +591,7 @@ int alignment_specifier(struct dec_spec *ds){
     } else {
         restore_tok(&tok);
         // constant_expression, resolve to int const
-        Node const_expr = constant_expression();
-        ds->align_hint = solve_constexpr(const_expr);
+        ds->align_hint = intconstexpr();
     }
     if (!ds->align_hint) {
         error(&tok->loc, "unable to determine alignment form alignment specifier");
@@ -1112,10 +1163,34 @@ void process_scs(Symbol sym) {
     if (!sym || !scs)
         return;
     switch(scs) {
-        case SCS_TYPEDEF:   sym->sclass = SCS_TYPEDEF;  break;
-        case SCS_EXTERN:    sym->sclass = SCS_EXTERN;   break;
-        case SCS_STATIC:    sym->sclass = SCS_STATIC;   break;
-        case SCS_AUTO:      sym->sclass = SCS_AUTO;     break;
+        case SCS_TYPEDEF:   
+            sym->sclass |= SCS_TYPEDEF;     break;
+        case SCS_EXTERN:    
+            sym->sclass |= SCS_EXTERN;      break;
+        case SCS_STATIC:    
+            sym->sclass |= SCS_STATIC;      break;
+        case SCS_AUTO:      
+            sym->sclass |= SCS_AUTO;        break; 
+        case SCS_REGISTER:
+            sym->sclass |= SCS_REGISTER;    break;
+        case SCS_THREAD_LOCAL:
+            sym->sclass |= SCS_THREAD_LOCAL;break;
+        case SCS_TYPEDEF + SCS_EXTERN:
+            sym->sclass |= SCS_TYPEDEF;
+            sym->sclass |= SCS_EXTERN;      break;
+        case SCS_TYPEDEF + SCS_STATIC:
+            sym->sclass |= SCS_TYPEDEF; 
+            sym->sclass |= SCS_STATIC;      break;
+        case SCS_TYPEDEF + SCS_AUTO:
+            sym->sclass |= SCS_TYPEDEF; 
+            sym->sclass |= SCS_AUTO;        break;
+        case SCS_TYPEDEF + SCS_REGISTER:
+            sym->sclass |= SCS_TYPEDEF; 
+            sym->sclass |= SCS_REGISTER;    break;
+        case SCS_TYPEDEF + SCS_THREAD_LOCAL:
+            sym->sclass |= SCS_TYPEDEF; 
+            sym->sclass |= SCS_THREAD_LOCAL;break;
+
         default:
             error(&loc, "attempting to declare declarator with more than one storage class specifier");
             break;
@@ -1126,12 +1201,32 @@ void merge_type(Type typ, struct dec_spec *ds, Type *t) {
     // add type qualifier
     if (isqual(typ)) {
         switch(typ->id) {
-            case _ATOMIC:           ds->tq & TQ_ATOMIC;                     break;
-            case CONST:             ds->tq & TQ_CONST;                      break;   
-            case VOLATILE:          ds->tq & TQ_VOLATILE;                   break;
-            case CONST+VOLATILE:    ds->tq & TQ_CONST; ds->tq & TQ_VOLATILE;break;
+            case _ATOMIC:           
+                ds->tq |= TQ_ATOMIC;                        
+                break;
+            case CONST:             
+                ds->tq |= TQ_CONST;                         
+                break;   
+            case VOLATILE:          
+                ds->tq |= TQ_VOLATILE;                      
+                break;
+            case RESTRICT:          
+                ds->tq |= TQ_RESTRICT;                      
+                break;
+            case CONST+VOLATILE:    
+                ds->tq |= TQ_CONST; ds->tq |= TQ_VOLATILE;  
+                break;
+            case CONST+RESTRICT:    
+                ds->tq |= TQ_CONST; ds->tq |= TQ_RESTRICT;  
+                break;
+            case VOLATILE+RESTRICT: 
+                ds->tq |= TQ_VOLATILE; ds->tq |= TQ_RESTRICT; 
+                break;
+            case CONST+VOLATILE+RESTRICT:
+                ds->tq |= TQ_CONST; ds->tq |= TQ_VOLATILE; ds->tq |= TQ_RESTRICT;
+                break;
         }
-        typ = typ->type;
+        typ = unqual(typ);
     }
     *t = typ;
 }
@@ -1147,6 +1242,12 @@ Type build_type(struct dec_spec ds, Type ty) {
         dec_type = make_type(VOLATILE, NULL, 0, 0, NULL, make_string("volatile", 8));
     else if (ds.tq == (TQ_CONST + TQ_VOLATILE))
         dec_type = make_type(CONST + VOLATILE, NULL, 0, 0, NULL, make_string("const volatile", 14));
+    else if (ds.tq == (TQ_CONST + TQ_RESTRICT))
+        dec_type = make_type(CONST+RESTRICT, NULL, 0, 0, NULL, make_string("const restrict", 14)); 
+    else if (ds.tq == (TQ_VOLATILE + TQ_RESTRICT))
+        dec_type = make_type(VOLATILE+RESTRICT, NULL, 0, 0, NULL, make_string("volatile restrict", 17));
+    else if (ds.tq == (TQ_CONST + TQ_VOLATILE + TQ_RESTRICT))
+        dec_type = make_type(CONST+VOLATILE+RESTRICT, NULL, 0, 0, NULL, make_string("const volatile restrict", 23));
     // add type specifier
     Type *t = (dec_type ? &dec_type->type : &dec_type);
     if (ty) {
