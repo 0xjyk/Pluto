@@ -272,6 +272,11 @@ _Bool first(int id, Token tok) {
         case ND_DECL:
             if (tok->type == ID || (tok->type == PUNCT && (tok->subtype == STAR || tok->subtype == LBRAC)))
                 return 1;
+        case ND_ABS_DECL:
+
+            if (tok->type == ID || (tok->type == PUNCT && 
+                (tok->subtype == STAR || tok->subtype == LBRAC || tok->subtype == LSQBRAC)))
+                return 1;
             break;
         case ND_TYPENAME:
             if ((tok->type == KEYWORD && tok->subtype >= CHAR && tok->subtype <= _ATOMIC) || 

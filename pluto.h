@@ -166,6 +166,8 @@ typedef struct type {
     int size;
     char *strrep;
     unsigned int usignedf:1;
+    // used only when array size is non-reducable assign expr
+    struct node *arr_size;
     union {
         // sym is used for structs, union (enum?, arrays?)
         Symbol sym;

@@ -61,7 +61,8 @@ Type declaration_specifiers(){
             tok = lex(); // exit loop if FIRST(declarator) or ';'
             if ((tok->type == PUNCT && (tok->subtype == SCOL
                 || tok->subtype == LBRAC || tok->subtype == STAR ||
-                tok->subtype == COM || tok->subtype == RBRAC)) ||
+                tok->subtype == COM || tok->subtype == RBRAC ||
+                tok->subtype == LSQBRAC)) ||
                 (tok->type == ID && !typedef_name(tok)))
                 //(tok->type == ID && !lookup(tok->val.strval, types)))
                 break;
@@ -869,10 +870,13 @@ Type func_or_array_decl(Type ds) {
         Type arr_child = func_or_array_decl(ds);
         // update array with more precise type and size
         arr->type = arr_child;
+        /*
         if (isqual(arr_child) && arr_child->type) 
             arr->size = arr->size * (arr_child->type->size);
         else 
             arr->size = arr->size * arr_child->size;
+        */
+        arr->size = arr->size;
         return arr;
     }
     if (tok->type == PUNCT && tok->subtype == LBRAC) {
@@ -896,15 +900,44 @@ Type array_decl(Type ds){
     }
     tok = lex();
     Type arr;
-    // variable length array
-    if (tok->type == PUNCT && tok->subtype == RSQBRAC) {
-        return make_array(ds, 0, 0);
-    } else if (tok->type == INTCONST)
-        arr = make_array(ds, tok->val.intval.u, 0);
-    else  {
+    // optional type_qualifier_list and STATIC
+    _Bool stat = 0;
+    int size = 0;
+    if (tok->subtype == STATIC) {
+        stat = 1;
+    } else 
         restore_tok(&tok);
-        // do assignment expression work here
-    }
+    Type tq = type_qualifier_list(NULL);
+    if ((tok = lex())->subtype == STATIC)
+        stat = 1;
+        // error if scope not param
+    else 
+        restore_tok(&tok);
+    // variable length array
+    if ((tok = lex())->subtype == STAR)
+        size = 0;
+        // error if scope not param
+    else 
+        restore_tok(&tok);
+    // size not defined
+    if ((tok = lex())->subtype == RSQBRAC)
+        return make_array(ds, size, 0);
+    else 
+        restore_tok(&tok);
+        
+    // assignment expression
+    Node assign_expr = assignment_expression();
+    if (assign_expr && !isint(assign_expr->type)) 
+        error(&assign_expr->loc, "expression denoting array size should have integer type");
+    arr = make_array(ds, size, 0);
+    // determine is assign_expr needs to be evaluated
+    _Bool flag = 0;
+    size = solve_intconst(assign_expr, &flag);
+    if (flag) 
+        arr->arr_size = assign_expr;
+    else
+        arr->size = size;
+
     tok = lex();
     if (tok->type != PUNCT && tok->subtype != RSQBRAC) {
         error(&tok->loc, "expected ']' in array declaration");
@@ -975,7 +1008,7 @@ Symbol parameter_declaration() {
     Symbol param; 
     Token tok = lex(); 
     // incorrect todo 
-    if (first(ND_DECL, tok)) {
+    if (first(ND_ABS_DECL, tok)) {
         restore_tok(&tok);
         param = declarator(ds, 1);
     } else {

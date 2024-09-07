@@ -1551,7 +1551,92 @@ Node enumeration_constant(){}
 unsigned long long int intconstexpr() {
     Node const_expr = constant_expression(); 
     // traverse const_expr and calculate int val
-    unsigned long long int val = 0;
+    _Bool flag = 0; 
+    unsigned long long int val = solve_intconst(const_expr, &flag);
+    if (flag) {
+        error(&const_expr->loc, "expected compile time integer constant expression");
+        return 1;
+    }
+    return val;
+}
 
+// flag is set to 1 if expr couldn't be solved
+unsigned long long int solve_intconst(Node nd, _Bool *flag) {
+    if (*flag)
+        return 1;
+    if (!nd)
+        return 1;
+    switch(nd->id) {
+        case ND_ID: case ND_STR:
+            *flag = 1;
+            return 1;
+        case ND_CONST: ND_UCHAR:
+            if (nd->type == uchartype)         
+                return nd->val.charval.c;
+            else if (nd->type == sinttype)          
+                return nd->val.intval.i;
+            else if (nd->type == uinttype)          
+                return nd->val.intval.u;
+            else if (nd->type == slongtype)         
+                return nd->val.intval.l;
+            else if (nd->type == ulongtype)         
+                return nd->val.intval.ul;
+            else if (nd->type == slonglongtype)     
+                return nd->val.intval.ll;
+            else if (nd->type == ulonglongtype)     
+                return nd->val.intval.ull;
+            else if (nd->type == floattype)         
+                return nd->val.floatval.f;
+            else if (nd->type == doubletype)        
+                return nd->val.floatval.d;
+            else if (nd->type == longdoubletype)    
+                return nd->val.floatval.ld;
+                // this should ever be executed
+            else 
+                return 0;
+        case ND_MULT:
+            return solve_intconst(nd->kids, flag) * solve_intconst(nd->kids->nxt, flag);
+        case ND_DIV:
+            return solve_intconst(nd->kids, flag) / solve_intconst(nd->kids->nxt, flag);
+        case ND_MOD:
+            return solve_intconst(nd->kids, flag) % solve_intconst(nd->kids->nxt, flag);
+        case ND_ADD:
+            return solve_intconst(nd->kids, flag) + solve_intconst(nd->kids->nxt, flag);
+        case ND_SUB:
+            return solve_intconst(nd->kids, flag) - solve_intconst(nd->kids->nxt, flag);
+        case ND_LSHFT:
+            return solve_intconst(nd->kids, flag) << solve_intconst(nd->kids->nxt, flag);
+        case ND_RSHFT:
+            return solve_intconst(nd->kids, flag) >> solve_intconst(nd->kids->nxt, flag);
+        case ND_LESS:
+            return solve_intconst(nd->kids, flag) < solve_intconst(nd->kids->nxt, flag);
+        case ND_GREATER:
+            return solve_intconst(nd->kids, flag) > solve_intconst(nd->kids->nxt, flag);
+        case ND_LEQ:
+            return solve_intconst(nd->kids, flag) <= solve_intconst(nd->kids->nxt, flag);
+        case ND_GEQ:
+            return solve_intconst(nd->kids, flag) >= solve_intconst(nd->kids->nxt, flag);
+        case ND_EQ:
+            return solve_intconst(nd->kids, flag) == solve_intconst(nd->kids->nxt, flag);
+        case ND_NEQ:
+            return solve_intconst(nd->kids, flag) != solve_intconst(nd->kids->nxt, flag);
+        case ND_BAND:
+            return solve_intconst(nd->kids, flag) & solve_intconst(nd->kids->nxt, flag);
+        case ND_XOR:
+            return solve_intconst(nd->kids, flag) ^ solve_intconst(nd->kids->nxt, flag);
+        case ND_IOR:
+            return solve_intconst(nd->kids, flag) | solve_intconst(nd->kids->nxt, flag);
+        case ND_AND:
+            return solve_intconst(nd->kids, flag) && solve_intconst(nd->kids->nxt, flag);
+        case ND_OR:
+            return solve_intconst(nd->kids, flag) || solve_intconst(nd->kids->nxt, flag);
+        case ND_COND:
+            return solve_intconst(nd->kids, flag) ? 
+                solve_intconst(nd->kids->nxt, flag) : solve_intconst(nd->kids->nxt->nxt, flag);
+        // sizeof alignof todo
+        default:
+            *flag = 1;
+            return 1;
+    }
     return 1;
 }

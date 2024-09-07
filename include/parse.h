@@ -85,6 +85,7 @@ Node expression();
 Node constant_expression();
 Node enumeration_constant();
 unsigned long long int intconstexpr();
+unsigned long long int solve_intconst(Node nd, _Bool *flag);
 // declarations.c
 Node declaration();
 Type declaration_specifiers();

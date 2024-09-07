@@ -1,0 +1,16 @@
+struct list {
+    int x; 
+    struct list *list;
+} *list;
+
+void walk (struct list *list) {
+    list:
+        printf("%d\n", list->x);
+        if ((list = list->list) != NULL)
+            goto list;
+}
+
+int main() {
+    walk(list);
+}
+

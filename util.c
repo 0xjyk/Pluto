@@ -95,6 +95,8 @@ void preprocess() {
         // Utilise GNU cpp to preprocess 
         char *pp[] = {"cpp", 
             "-E",
+            "-I", 
+            "/afs/.ir/users/j/k/jk10/lib/musl/include/", 
             "-std=c11", infiles[i], "-o", pp_file, NULL};
         pid_t pid = fork(); 
         if (pid < 0) 
