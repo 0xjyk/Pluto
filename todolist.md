@@ -8,3 +8,4 @@ typechecking
     2. initializer (both expressions and init assignments)
     3. assign apt type to enumerated constant
     4. complete compatible & composite types 
+    5. error messages for check_init

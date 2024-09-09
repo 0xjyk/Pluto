@@ -412,6 +412,7 @@ Type make_struct(int id, char *tag, Location l);
 Type make_func(Type t, Vector proto);
 Type make_ptr(Type t);
 Type make_array(Type t, int size, int align);
+Type make_dup_array(Type t, int size, int align);
 Type atop(Type t);
 Type array_type(Type t);
 Type deref(Type t);

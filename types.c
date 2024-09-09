@@ -131,6 +131,10 @@ Type make_array(Type t, int size, int align) {
     return make_type(ARRAY, t, size, align ? align : t->align, NULL, make_string("array", 5));
 }
 
+Type make_dup_array(Type arr, int size, int align) {
+    return make_array(array_type(arr), size, align); 
+}
+
 Type atop(Type t) {
     if (isarray(t))
         return make_ptr(t->type);
@@ -949,14 +953,89 @@ Type usual_arithmetic_conversion(Type t1, Type t2) {
 }
 
 _Bool iscompatible(Type t1, Type t2) {
+    // both types need to be equally qualified
+    if ((isqual(t1) && !isqual(t2)) ||
+        (isqual(t2) && !isqual(t2)))
+        return 0;
+    if (isqual(t1) && isqual(t2) && 
+        t1->id != t2->id)
+        return 0;
     t1 = unqual(t1); t2 = unqual(t2);
+    // at this point both t1 and t2 are unqualified 
+    // if one is a pointer both should be a pointer
+    if ((isptr(t1) && !isptr(t2)) ||
+        (isptr(t2) && !isptr(t1)))
+        return 0;
+    // if both are pointers both should point to compatible types
+    if (isptr(t1) && isptr(t2))
+        return iscompatible(deref(t1), deref(t2));
+    // if one is an array both should be arrays
+    if ((isarray(t1) && !isarray(t2)) || 
+        (isarray(t2) && !isarray(t1))) 
+        return 0;
+    // if sizes were specified, both need to match
+    // both element types need to be compatible 
+    if (isarray(t1) && isarray(t2)) {
+        if (t1->size != t2->size)
+            return 0;
+        // if vla, undefined if they're compatible, assume they are
+        if ((isvla(t1) && !isvla(t2)) ||
+            (isvla(t2) && !isvla(t1)))
+            return 0;
+        return iscompatible(t1->type, t2->type);
+    }
+    if ((isfunc(t1) && !isfunc(t2)) ||
+        (isfunc(t2) && !isfunc(t1)))
+        return 0;
+    if (isfunc(t1) && isfunc(t2)) {
+    // function return types need to be compatible 
+        if (!iscompatible(t1->type, t2->type))
+            return 0;
+        // number of parameters should be equal
+        if (t1->u.f.proto->size != t2->u.f.proto->size)
+            return 0;
+        // each parameter should be compatible with the other
+        Symbol s1 = NULL, s2 = NULL;
+        for (int i = 0; i < t1->u.f.proto->size - 1; i++) {
+            s1 = vec_get(t1->u.f.proto, i);
+            s2 = vec_get(t2->u.f.proto, i);
+            if (!iscompatible(s1->type, s2->type))
+                return 0;
+        }
+        return 1; 
+    }
+    if ((isstructunion(t1) && !isstructunion(t2)) ||
+        (isstructunion(t2) && !isstructunion(t1)))
+        return 0;
+    if (isstructunion(t1) && isstructunion(t2)) {
+        if (t1->id != t2->id)
+            return 0;
+        if (!t1->u.sym->defined || !t2->u.sym->defined)
+            return 0;
+        // compare each field
+        Field f1 = t1->u.sym->u.s.flist, f2 = t2->u.sym->u.s.flist;
+        while (f1 && f2) {
+            if ((f1->name != f2->name) ||
+                !iscompatible(f1->type, f2->type) ||
+                f1->bitsize != f2->bitsize)
+                return 0;
+            f1 = f1->next; f2 = f2->next;
+        }
+        // exited at the same time, equal number of fields
+        if (!f1 && !f2)
+            return 1;
+        return 0;
+    }
+    // can directly compare predefined types
     if (t1 == t2)
         return 1;
-    // incomplete todo
+    return 0;
 }
 
 Type composite_type(Type t1, Type t2) {
-    // todo
+    // callers responsibility to ensure that t1 & t2 are compatible
+    return NULL;
+    // implement after getting enough context
 }
 
 _Bool isvla(Type arr) {

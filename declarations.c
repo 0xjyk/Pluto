@@ -617,6 +617,8 @@ Type typedef_name(Token tok) {
     Symbol sym = lookup(tok->val.strval, identifiers);
     if (!sym || sym->sclass != SCS_TYPEDEF)
         return NULL;
+    if (isarray(sym->type))
+        return make_dup_array(sym->type, sym->type->size, sym->type->align);
     return sym->type;
 }
 
@@ -626,7 +628,11 @@ Node init_declarator_list(Type ds){
     // init_declarator_list, init_declarator
     
     // retrieve the first declaration
-    Node init_decl = init_declarator(ds);
+    Node init_decl;
+    if (isarray(ds))
+        init_decl = init_declarator(make_dup_array(ds, ds->size, ds->align));
+    else 
+        init_decl = init_declarator(ds);
     // don't check for more if it turns out to be a function definition
     if (init_decl->id == ND_FUNC_DEF)
         return init_decl;
@@ -644,7 +650,10 @@ Node init_declarator_list(Type ds){
     add_child(init_decl_list, &init_decl);
     init_decl_list->loc = init_decl->loc;
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
-        init_decl = init_declarator(ds);
+        if (isarray(ds))
+            init_decl = init_declarator(make_dup_array(ds, ds->size, ds->align));
+        else 
+            init_decl = init_declarator(ds);
         add_child(init_decl_list, &init_decl);
     }
     restore_tok(&tok);
@@ -1407,6 +1416,8 @@ void check_init(Type t, Node init, Field *f, int *idx) {
         child = init->kids;
         if (isstructunion(t))
             nf = t->u.sym->u.s.flist;
+        if (isarray(t) && t->size == 0 && !isvla(t))
+            t->size = init->num_kids;
         
         for (int i = 0; i < init->num_kids; i++) {
             check_init(t, child, &nf, &ndx); 
@@ -1424,7 +1435,6 @@ void check_init(Type t, Node init, Field *f, int *idx) {
             *f = (*f)->next; 
             check_init(init->type, init->kids, f, idx);
             // typecheck with assign_expr 
-
         } else if (init->num_kids == 1 && (!isarray(t) && !isstructunion(t))) {
             init->type = t;
             // typecheck with assing_expr
@@ -1433,6 +1443,8 @@ void check_init(Type t, Node init, Field *f, int *idx) {
             check_init(t, init->kids, f, idx);
             // update ND_INIT type - should be the same as ND_DESIG_LIST
             init->type = init->kids->type;
+            // update ND_INIT_LIST type
+            check_init(init->type, init->kids->nxt, f, idx);
         } else if (init->num_kids == 2 && isarray(t)) {
             // update ND_DESIG_LIST type
             check_init(t, init->kids, f, idx);
