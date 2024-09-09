@@ -269,11 +269,15 @@ _Bool first(int id, Token tok) {
                     tok->subtype == _BOOL || (tok->type == ID && typedef_name(tok)))
                     return 1;
             break;
+        case ND_SQL:
+            if (tok->subtype == _BOOL || (tok->subtype >= CONST && tok->subtype <= _ATOMIC) ||
+                (tok->subtype >= CHAR && tok->subtype <= VOID) || (tok->type == ID && typedef_name(tok)))
+                return 1;
+            break;
         case ND_DECL:
             if (tok->type == ID || (tok->type == PUNCT && (tok->subtype == STAR || tok->subtype == LBRAC)))
                 return 1;
         case ND_ABS_DECL:
-
             if (tok->type == ID || (tok->type == PUNCT && 
                 (tok->subtype == STAR || tok->subtype == LBRAC || tok->subtype == LSQBRAC)))
                 return 1;

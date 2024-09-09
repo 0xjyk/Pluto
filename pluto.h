@@ -439,6 +439,7 @@ _Bool iscomplete(Type t);
 Type usual_arithmetic_conversion(Type t1, Type t2);
 _Bool iscompatible(Type t1, Type t2);
 Type composite_type(Type t1, Type t2);
+_Bool isvla(Type arr);
 //#define isqual(t)           ((t)->id >= CONST \
                             && (t)->id <= _ATOMIC)
 #define unqual(t)           (isqual(t) ? (t)->type : (t))

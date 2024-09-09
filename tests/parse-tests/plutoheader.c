@@ -1,7 +1,7 @@
 #ifndef PLUTO_H
 #define PLUTO_H
-
-/*
+#define __builtin_va_list char *
+#define __attribute__(a)
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,7 +15,6 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <float.h>
-*/
 // pluto.h
 
 // cli flags
@@ -440,8 +439,24 @@ struct s {
     int ii;
     int arr[];
 } ss;
+Type comp(Type composite_type);
+int func(Node n);
 
 enum ee {
     BLUE = 1, RED = 3 
 } eenum;
+
+void addscalar(int n, int m, double a[n][n*m+300], double x); 
+
+int main() { 
+    double b[4][308]; 
+    addscalar(4, 2, b, 2.17); 
+    return 0; 
+} 
+void addscalar(int n, int m, double a[n][n*m+300], double x) { 
+    for (int i = 0; i < n; i++) 
+        for (int j = 0, k = n*m+300; j < k; j++) 
+            // a is a pointer to a VLA with n*m+300 elements 
+            a[i][j] += x; 
+}
 #endif

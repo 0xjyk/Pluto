@@ -131,7 +131,7 @@ void process_scs(Symbol sym);
 void merge_type(Type typ, struct dec_spec *ds, Type *t);
 Type build_type(struct dec_spec ds, Type ty);
 void handle_su(Type *su);
-
+void check_init(Type t, Node init, Field *f, int *i);
 // statements
 Node statement();
 Node labeled_statement();

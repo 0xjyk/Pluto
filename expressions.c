@@ -1548,6 +1548,7 @@ Node constant_expression(){
 
 Node enumeration_constant(){}
 
+
 unsigned long long int intconstexpr() {
     Node const_expr = constant_expression(); 
     // traverse const_expr and calculate int val

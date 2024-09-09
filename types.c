@@ -959,3 +959,9 @@ Type composite_type(Type t1, Type t2) {
     // todo
 }
 
+_Bool isvla(Type arr) {
+    if(arr->size == 0 && arr->arr_size)
+        return 1;
+    return 0;
+}
+

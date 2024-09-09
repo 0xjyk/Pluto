@@ -59,6 +59,9 @@ Type declaration_specifiers(){
     int seen = 1;
         while (seen) {
             tok = lex(); // exit loop if FIRST(declarator) or ';'
+            if (!first(ND_DS, tok))
+                break;
+            /*
             if ((tok->type == PUNCT && (tok->subtype == SCOL
                 || tok->subtype == LBRAC || tok->subtype == STAR ||
                 tok->subtype == COM || tok->subtype == RBRAC ||
@@ -66,6 +69,7 @@ Type declaration_specifiers(){
                 (tok->type == ID && !typedef_name(tok)))
                 //(tok->type == ID && !lookup(tok->val.strval, types)))
                 break;
+            */
             seen = 0;
             restore_tok(&tok);
             // check if storage class specifier
@@ -359,6 +363,9 @@ Type specifier_qualifier_list() {
     Token tok;
     while (seen) {
         tok = lex(); 
+        if (!first(ND_SQL, tok))
+            break;
+        /*
         // exit if not a type specifier or type qualifier
         if ((tok->type == ID && !typedef_name(tok)) ||
         //if ((tok->type == ID && !lookup(tok->val.strval, types)) ||
@@ -367,7 +374,7 @@ Type specifier_qualifier_list() {
             tok->subtype == LBRAC || tok->subtype == RBRAC ||
             tok->subtype == LSQBRAC)))
             break;
-
+        */
         seen = 0;
         restore_tok(&tok);
         if (seen |= type_specifier(&ds, &t))
@@ -687,6 +694,10 @@ Node init_declarator(Type ds){
     if ((tok = lex())->type == PUNCT && tok->subtype == ASSIGN) {
         dd->loc = tok->loc; 
         Node init = initializer();
+        if (isstructunion(dd->type))
+            check_init(dd->sym->type, init, &dd->type->u.sym->u.s.flist, 0);
+        else 
+            check_init(dd->sym->type, init, 0, 0);
         s = lookup(dd->sym->name, identifiers);
         if (s && s->scope == level && s->defined)
             error(&dd->loc, "attempted to redefine previously defined identifier");
@@ -1061,6 +1072,7 @@ Node initializer_list(){
     // initializer_list , designation[opt] initializer
     Node init_list = make_node(ND_INIT_LIST, PERM);
     Node init = initializer_list_helper();
+    init_list->loc = init->loc;
     add_child(init_list, &init);
     Token tok;
     while ((tok = lex())->type == PUNCT && tok->subtype == COM) {
@@ -1085,6 +1097,7 @@ Node initializer_list_helper() {
     if (tok->type == PUNCT && (tok->subtype == LSQBRAC || tok->subtype == DOT)) {
         restore_tok(&tok);
         Node desig = designation();
+        init->type = desig->type;
         add_child(init, &desig);
     } else 
         restore_tok(&tok);
@@ -1109,7 +1122,7 @@ Node designator_list(){
     desig_list->loc = desig->loc;
     add_child(desig_list, &desig);
     Token tok = lex();
-    while (tok->type = PUNCT && (tok->subtype == LSQBRAC || tok->subtype == DOT)) {
+    while (tok->type == PUNCT && (tok->subtype == LSQBRAC || tok->subtype == DOT)) {
         restore_tok(&tok);
         desig = designator();
         add_child(desig_list, &desig);
@@ -1125,7 +1138,12 @@ Node designator(){
     if (tok->type == PUNCT && tok->subtype == LSQBRAC) {
         Node sel = make_node(ND_SELECT, PERM);
         sel->loc = tok->loc;
-        Node const_expr = constant_expression();
+        Node const_expr = make_node(ND_CONST, PERM);
+        const_expr->subid = ND_INT;
+        const_expr->subsubid = SINT;
+        const_expr->loc = sel->loc;
+        const_expr->type = sinttype;
+        const_expr->val.intval.i = intconstexpr();
         add_child(sel, &const_expr);
         tok = lex();
         if (tok->subtype != RSQBRAC) {
@@ -1381,4 +1399,87 @@ void handle_su(Type *su) {
 }
 
 
+void check_init(Type t, Node init, Field *f, int *idx) {
+    Node child = NULL; Field nf = NULL; int ndx = 0;
+    switch(init->id) {
+    case ND_INIT_LIST: 
+        init->type = t;
+        child = init->kids;
+        if (isstructunion(t))
+            nf = t->u.sym->u.s.flist;
+        
+        for (int i = 0; i < init->num_kids; i++) {
+            check_init(t, child, &nf, &ndx); 
+            child = child->nxt;
+        }
+        break;
+    case ND_INIT:
+        if (init->num_kids == 1 && isarray(t)) {
+            init->type = t->type;
+            check_init(init->type, init->kids, f, idx);
+            // typecheck with assign_expr
+        } else if (init->num_kids == 1 && isstructunion(t)) {
+            // if f is null throw error
+            init->type = (*f)->type;
+            *f = (*f)->next; 
+            check_init(init->type, init->kids, f, idx);
+            // typecheck with assign_expr 
+
+        } else if (init->num_kids == 1 && (!isarray(t) && !isstructunion(t))) {
+            init->type = t;
+            // typecheck with assing_expr
+        } else if (init->num_kids == 2 && isstructunion(t)) {
+            // update ND_DESIG_LIST type
+            check_init(t, init->kids, f, idx);
+            // update ND_INIT type - should be the same as ND_DESIG_LIST
+            init->type = init->kids->type;
+        } else if (init->num_kids == 2 && isarray(t)) {
+            // update ND_DESIG_LIST type
+            check_init(t, init->kids, f, idx);
+            // update ND_INIT type - should be the same as ND_DESIG_LIST
+            init->type = init->kids->type;
+            // update ND_INIT_LIST type
+            check_init(init->type, init->kids->nxt, f, idx);
+        }
+        break;
+    case ND_DESIG_LIST:
+        child = init->kids;
+        Type nt = t;
+        do {
+            // only the first dot should have a lasting impact on f
+            switch(child->id) {
+            case ND_DOT:
+                // error if nt is not a struct/union  
+                if (!nf) {
+                    nf = get_member(nt, child->kids->val.strval);
+                    *f = nf->next;
+                } else 
+                    nf = get_member(nt, child->kids->val.strval);
+                nt = nf->type;
+                // error if nf is not defined  
+                if (!nf) 
+                    error(&loc, "member not found");
+                else {
+                    child->type = nf->type;
+                    child->kids->type = child->type;
+                }
+                // init's type should be the type of the last child
+                init->type = child->type;
+                break;
+            case ND_SELECT:
+                // error if nt is not an array
+                // nt should be the type of element of the array
+                nt = nt->type;
+                child->type = nt;
+                *idx = child->kids->val.intval.i + 1;
+
+                // init's type should be the type of the last child 
+                init->type = child->type;
+                break;
+            }
+            child = child->nxt;
+        } while (child);
+        break;
+    }
+}
 
