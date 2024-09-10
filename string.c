@@ -20,7 +20,7 @@ int hash(unsigned char *str, int slen, int num_buckets) {
     // ensure hash is between 0-NUM_BUCKETS
     hash &= (num_buckets - 1);
     return hash;
-};
+}
 
 char *make_string(char *str, int len) {
     // hash str to get the appropriate bucket

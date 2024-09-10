@@ -45,6 +45,7 @@ Type charptype;     // char *
 
 Type uptype;        // unsigned pointer 
 Type sptype;        // signed pointer
+Type enumtype;
 
 // maintain only a single copy of each type
 #define TYPE_TAB_SIZE 128
@@ -453,6 +454,7 @@ void typeinit() {
     charptype = make_ptr(chartype);
     uptype = ulonglongtype;
     sptype = longlongtype;
+    enumtype = sinttype;
 
 }
 

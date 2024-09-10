@@ -1575,7 +1575,9 @@ unsigned long long int solve_intconst(Node nd, _Bool *flag) {
     if (!nd)
         return 1;
     switch(nd->id) {
-        case ND_ID: case ND_STR:
+        case ND_ID: 
+            if (nd->type == enumtype) 
+                return nd->val.intval.i;
             *flag = 1;
             return 1;
         case ND_CONST: ND_UCHAR:

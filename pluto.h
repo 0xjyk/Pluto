@@ -346,6 +346,7 @@ extern Type charptype;     // char *
 
 extern Type uptype;        // unsigned pointer
 extern Type sptype;        // signed pointer
+extern Type enumtype;      // enum member
 
 extern Node root;
 extern token_store *ts;

@@ -331,7 +331,7 @@ Field struct_declaration(Type su){
     Token tok;
     // do static_assert work
 
-    Type sql = specifier_qualifier_list(su);
+    Type sql = specifier_qualifier_list();
     char *name = make_string("", 0);
     Field fd = NULL, ffd;
 
@@ -519,7 +519,7 @@ int enumerator(Type enm, int member_val){
         if (sym && sym->scope == level) 
             error(&tok->loc, "attempted to redeclare identifier in enum declaration");
         sym = install(emem, &identifiers, level, PERM);
-        sym->type = sinttype;
+        sym->type = enumtype;
         sym->u.c.v.i = member_val;
         return ++member_val;
     }
