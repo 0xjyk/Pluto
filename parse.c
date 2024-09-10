@@ -72,7 +72,10 @@ Node parse(char *pp_file) {
 
 
 // helper functions
-void print_cpp() {
+void dump_cpp(char *pp_file) {
+    bufinit(pp_file);
+    typeinit();
+    ts = NULL;
     while(buf.curr < buf.bufend) {
         while (buf.curr < buf.bufend) {
             fprintf(stdout, "%c", *buf.curr++);
@@ -128,6 +131,38 @@ void restore_tok(Token *tok) {
     */
 }
 
+char *merge_string(Token tok) {
+    Token tokcpy = tok; 
+    size_t i = 0, buflen = 0, bufsize = 0, len = 0; char *buf = NULL; 
+    while ((tok = lex())->type == STR) {
+        // first iteration
+        if (buf == NULL) {
+            buflen = strlen(tokcpy->val.strval);
+            bufsize = 2 * buflen + 1;
+            buf = alloc(bufsize, PERM);
+            *buf = '\0';
+            strcat(buf, tokcpy->val.strval);
+            i++;
+        }
+        // do on every iteration
+        len = strlen(tok->val.strval);
+        // resize
+        if ((bufsize - buflen) <= len) {
+            char *nb = alloc((bufsize + len) * 2 + 1, PERM);
+            *nb = '\0';
+            strcat(nb, buf);
+            buf = nb;
+        }
+        strcat(buf, tok->val.strval);
+        buflen += len;
+        i++;
+    }
+    restore_tok(&tok);
+    if (i == 0)
+        return tokcpy->val.strval;
+    return make_string(buf, buflen);
+}
+
 void print_node(Node n, int indent) {
     char *node_map[256];
 #define NODE(a,b,c) node_map[b - 256] = c;
@@ -146,7 +181,6 @@ void print_node(Node n, int indent) {
 #define PCONST(a, b) printf("|-- ND_CONST: [type: %s] \'" a "\' <line:%d, col: %d>\n", \
         ttos(n->type), n->val.b, n->loc.y, n->loc.x)
 
-    // requires complete redo
     switch (n->id) {
     case ND_ROOT:
         printf("%s \n", node_map[ND_ROOT - 256]); break;

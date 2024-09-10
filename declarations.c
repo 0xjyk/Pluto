@@ -61,6 +61,10 @@ Type declaration_specifiers(){
             tok = lex(); // exit loop if FIRST(declarator) or ';'
             if (!first(ND_DS, tok))
                 break;
+            // if type was already present don't consume typedef, 
+            // rather use as identifer for declarator
+            if (tok->type == ID && typedef_name(tok) && (ds.ts || t))
+                break;
             /*
             if ((tok->type == PUNCT && (tok->subtype == SCOL
                 || tok->subtype == LBRAC || tok->subtype == STAR ||
@@ -364,6 +368,10 @@ Type specifier_qualifier_list() {
     while (seen) {
         tok = lex(); 
         if (!first(ND_SQL, tok))
+            break;
+        // if type was already present don't consume typedef, 
+        // rather use as identifer for declarator
+        if (tok->type == ID && typedef_name(tok) && (ds.ts || t))
             break;
         /*
         // exit if not a type specifier or type qualifier

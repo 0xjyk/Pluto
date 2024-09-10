@@ -40,8 +40,7 @@ int main(int argc, char *argv[]) {
             //dump_stringpool();
             dump_AST(root, 0);
         } else if (JOBSCOPE == TYPECHECK) {
-            printf("requested l, p, t\n");
-            parse((char *)vec_get(ppfiles, i));
+            dump_cpp((char *)vec_get(ppfiles, i));
         } else {
             printf("requested l, p, t, c\n"); 
         }

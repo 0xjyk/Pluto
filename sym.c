@@ -129,6 +129,16 @@ int genlabel(int n) {
     return label - n;
 }
 
+void dump_identifiers() {
+    struct entry *e;
+    for (int h = 0; h < TAB_HASH_SIZE; h++) {
+        if (identifiers->buckets[h])
+            fprintf(stdout, "Bucket[%d]\n", h);
+        for (e = identifiers->buckets[h]; e; e = e->next)
+            fprintf(stdout, "> %s [type: %s]", e->sym.name, ttos(e->sym.type));
+    }
+}
+
 /* TODO: marked as comment since incomplete 
 Symbol make_constant(type ty, constantval c) {
     struct entry *e; 

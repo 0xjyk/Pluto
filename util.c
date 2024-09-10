@@ -97,6 +97,10 @@ void preprocess() {
             "-E",
             "-I", 
             "/afs/.ir/users/j/k/jk10/lib/musl/include/", 
+            "-D",
+            "__builtin_va_list=char *", 
+            "-D", 
+            "__attribute__(a)= ", 
             "-std=c11", infiles[i], "-o", pp_file, NULL};
         pid_t pid = fork(); 
         if (pid < 0) 

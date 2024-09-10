@@ -666,8 +666,8 @@ _Bool match_proto(Node arg_list, Type t) {
             error(&loc, "attempting to make function call with insufficient arguments");
             return 0;
         }
-        // incorrect update once type compatibality is done
-        if (arg->type != p->type) {
+        // check assignment conformace
+        if (!conforms(p->type, arg->type)) {
             error(&loc, "given arguement is incompatile with function declaration");
             return 0;
         }
@@ -680,6 +680,31 @@ _Bool match_proto(Node arg_list, Type t) {
     }
     return 1;
 }
+
+// check if r conforms to l
+
+_Bool conforms(Type l, Type r) {
+    // qualifiers don't affect conformance
+    l = unqual(l); r = unqual(r);
+    if (isarith(l) && isarith(r))
+        return 1;
+    if (isstructunion(l) && isstructunion(r) && 
+        iscompatible(l, r))
+        return 1;
+    if (isptr(l) && isptr(r) &&
+        iscompatible(unqual(deref(l)), unqual(deref(r))))
+        return 1;
+    if (isptr(l) && isptr(r) &&
+        ((unqual(deref(l)) == voidtype && unqual(deref(r)) != voidtype) ||
+         (unqual(deref(r)) == voidtype && unqual(deref(l)) != voidtype)))
+        return 1;
+    if (isptr(l) && isint(r))
+        return 1;
+    if (isbool(l) && isptr(r))
+        return 1;
+    return 0;
+}
+
 _Bool expect_noargs(Type t) {
     int num_args = t->u.f.proto->size;
     if (num_args == 2) {
@@ -961,6 +986,9 @@ _Bool iscompatible(Type t1, Type t2) {
         t1->id != t2->id)
         return 0;
     t1 = unqual(t1); t2 = unqual(t2);
+    // guaranteed by the compiler to be the compatible
+    if (t1 == t2) 
+        return 1;
     // at this point both t1 and t2 are unqualified 
     // if one is a pointer both should be a pointer
     if ((isptr(t1) && !isptr(t2)) ||
@@ -1015,8 +1043,7 @@ _Bool iscompatible(Type t1, Type t2) {
         // compare each field
         Field f1 = t1->u.sym->u.s.flist, f2 = t2->u.sym->u.s.flist;
         while (f1 && f2) {
-            if ((f1->name != f2->name) ||
-                !iscompatible(f1->type, f2->type) ||
+            if (!iscompatible(f1->type, f2->type) ||
                 f1->bitsize != f2->bitsize)
                 return 0;
             f1 = f1->next; f2 = f2->next;
@@ -1026,16 +1053,42 @@ _Bool iscompatible(Type t1, Type t2) {
             return 1;
         return 0;
     }
-    // can directly compare predefined types
-    if (t1 == t2)
-        return 1;
     return 0;
 }
 
 Type composite_type(Type t1, Type t2) {
     // callers responsibility to ensure that t1 & t2 are compatible
-    return NULL;
-    // implement after getting enough context
+    if (isarray(t1) && isarray(t2)) {
+        if (t1->size)           return t1;
+        if (t2->size)           return t2;
+        if (t1->arr_size)       return t1;
+        if (t2->arr_size)       return t2;
+        return t1;
+    }
+    if (isfunc(t1) && isfunc(t2)) {
+        if (t1->u.f.proto)      return t1;
+        if (t1->u.f.proto)      return t2;
+        Symbol s1 = NULL, s2 = NULL, s3 = NULL;
+        Vector proto = vec_init(2);
+        for (int i = 0; i < t1->u.f.proto->size - 1; i++) {
+            s1 = vec_get(t1->u.f.proto, i);
+            s2 = vec_get(t2->u.f.proto, i);
+            if (s1 == s2) {
+                vec_pushback(proto, s1);
+                continue;
+            }
+            s3 = alloc(sizeof(symbol), PERM);
+            // not sure how names should be handled
+            s3->name = s1->name;
+            s3->type = composite_type(s1->type, s2->type);
+            vec_pushback(proto, s3);
+        }
+        vec_pushback(proto, NULL);
+        return make_func(t1->type, proto);
+    }
+    // composite types only apply to arrays and functions
+    // other types are left untouched 
+    return t1;
 }
 
 _Bool isvla(Type arr) {

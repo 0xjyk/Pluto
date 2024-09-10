@@ -74,7 +74,12 @@ Node labeled_statement(){
                 error(&tok->loc, "attempting to declare case statement outside switch statement");
             }
             label_stmt->id = ND_CASE_LABEL;
-            Node const_expr = constant_expression();
+            Node const_expr = make_node(ND_CONST, PERM);
+            const_expr->subid = ND_INT;
+            const_expr->subsubid = SINT;
+            const_expr->loc = label_stmt->loc;
+            const_expr->type = sinttype;
+            const_expr->val.intval.i = intconstexpr();
             add_child(label_stmt, &const_expr);
             break;
         case DEFAULT:
@@ -104,6 +109,7 @@ Node compound_statement(){
     Node block_item;
     // block_item 
     // block_item_list block_item
+    enterscope();
     while ((tok = lex())->subtype != RCBRAC) {
         // declaration
         // statement 
@@ -118,6 +124,7 @@ Node compound_statement(){
         add_child(compd_stmt, &block_item);
         continue;
     }
+    exitscope();
     return compd_stmt;
 }
 
@@ -152,32 +159,42 @@ Node selection_statement(){
         tc.in_switch++;
         sel_stmt->id = ND_SWITCH_STMT;
     } else
+        // throw error
         sel_stmt->id = ND_IF_STMT;
     // ( expression ) statement
     if ((tok = lex())->subtype != LBRAC) {
         restore_tok(&tok);
         error(&tok->loc, "expected '(' after if/switch keyword");
     }
+    enterscope();
     Node expr = expression();
-    // type check and ensure that 
-    // if ND_IF_STMT, then the resulting type is a scalar type todo
-    // if ND_STMT, then the resulting type is of integer type todo
+    // if ND_IF_STMT, then the resulting type is a scalar type
+    if (sel_stmt->id == ND_IF_STMT && !isscalar(expr->type))
+        error(&expr->loc, "the controlling expression of an if statement should have scalar type");
+    // if ND_SWITCH_STMT, then the resulting type is of integer type 
+    if (sel_stmt->id == ND_SWITCH_STMT && !isint(expr->type))
+        error(&expr->loc, "the controlling expression of a switch statement should have integer type");
     add_child(sel_stmt, &expr);
     if ((tok = lex())->subtype != RBRAC) {
         restore_tok(&tok);
         error(&tok->loc, "expected ')' after predicate expression in if/switch statement");
     }
+    enterscope();
     Node stmt = statement();
+    exitscope();
     add_child(sel_stmt, &stmt);
     if (sel_stmt->id == ND_SWITCH_STMT)
         tc.in_switch--;
     // optional else extension
     if (sel_stmt->id == ND_IF_STMT) 
         if (((tok = lex())->subtype == ELSE)) {
+            enterscope();
             stmt = statement();
+            exitscope();
             add_child(sel_stmt, &stmt);
         } else 
             restore_tok(&tok);
+    exitscope();
     return sel_stmt;
 }
 Node iteration_statement(){
@@ -198,6 +215,8 @@ Node iteration_statement(){
                 error(&tok->loc, "expetected '(' after while keyword");
             }
             expr = expression();
+            if (!isscalar(expr->type))
+                error(&expr->loc, "the controlling expression of an iteration statement shall have scalar type");
             add_child(iter_stmt, &expr);
             if ((tok = lex())->subtype != RBRAC) {
                 restore_tok(&tok);
@@ -225,6 +244,8 @@ Node iteration_statement(){
                 error(&tok->loc, "expected '(' after while keyword");
             }
             expr = expression();
+            if (!isscalar(expr->type))
+                error(&expr->loc, "the controlling expression of an iteration statement shall have scalar type");
             add_child(iter_stmt, &expr);
             if ((tok = lex())->subtype != RBRAC) {
                 restore_tok(&tok);
@@ -268,7 +289,6 @@ Node iteration_statement(){
                 expr->loc = tok->loc;
                 add_child(iter_stmt, &expr);
             }
-                        
             enterscope();
             stmt = statement();
             exitscope();
@@ -310,6 +330,7 @@ Node jump_statement(){
         case RETURN:
             jmp_stmt->id = ND_RETURN;
             Node expr = expression_statement();
+            jmp_stmt->type = expr->type;
             add_child(jmp_stmt, &expr);
             return jmp_stmt;
     }
@@ -358,7 +379,8 @@ Node function_definition(Symbol sym){
     } else if (s && s->defined) {
         error(&sym->loc, "attempting to redefine previously defined function");
     } else if (s && !s->defined) {
-        s->defined = 1;
+        *s = *sym;
+        sym->defined = 1;
     }
     // at this point s should be the correct symbol to define 
     func_def->sym = s;

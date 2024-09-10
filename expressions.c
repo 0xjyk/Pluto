@@ -27,14 +27,17 @@ Node primary_expression(){
             } else {
                 // identifiers that have func type are understood to ptr to corresponding func type
                 if (isfunc(sym->type)) {
-                    sym->type = make_ptr(sym->type);
+                    nd->type = make_ptr(sym->type);
+                    nd->sym = sym;
                     nd->lval = 0;
-                } 
                 // arrays are converted to pointers
-                if (isarray(sym->type)) 
-                    sym->type = atop(sym->type);
-                nd->type = sym->type;
-                nd->sym = sym;
+                } else if (isarray(sym->type)) {
+                    nd->type = atop(sym->type);
+                    nd->sym = sym;
+                } else {
+                    nd->type = sym->type;
+                    nd->sym = sym;
+                }
             }
             nd->loc = tok->loc;
             return nd;
@@ -108,7 +111,7 @@ Node primary_expression(){
         case STR:
             nd = make_node(ND_STR, PERM);
             nd->type = charptype;
-            nd->val.strval = tok->val.strval;
+            nd->val.strval = merge_string(tok);
             nd->loc = tok->loc;
             nd->lval = 1;
             nd->rval = 1;
@@ -365,9 +368,11 @@ Node postfix_expression(){
                 if (!tc.su_err) {
                     id->field = get_member(pf_root->type, tok->val.strval); 
                     dot->field = id->field;
-                    if (!id->field) 
+                    if (!id->field) {
                         error(&tok->loc, "given member does not belong to the given struct/union");
-                    else {
+                        dot->type = sinttype;
+                        id->type = dot->type;
+                    } else {
                         // extra indirection is used in enforce C's cascading types
                         //dot->type = id->field->type;
                         //id->type = id->field->type;
@@ -406,9 +411,11 @@ Node postfix_expression(){
                     idd->field = get_member(deref(pf_root->type), tok->val.strval);
                     arr->field = idd->field;
 
-                    if (!idd->field)
+                    if (!idd->field) {
                         error(&tok->loc, "given member does not belong to the given struct/union");
-                    else {
+                        arr->type = sinttype;
+                        idd->type = arr->type;
+                    } else {
                         //arr->type = idd->field->type;
                         //idd->type = idd->field->type;
                         arr->type = fieldtype(pf_root->type, idd->field->type);
@@ -1535,7 +1542,7 @@ Node expression() {
     } while ((tok = lex())->subtype == COM); 
     // the last expressions type is used as the type of the entire set of expressions
     expr->type = t;
-    expr->lval = 0; 
+    expr->lval = expr->num_kids == 1 ? expr->kids->lval : 0;
     expr->rval = 1;
     restore_tok(&tok); 
     return expr;

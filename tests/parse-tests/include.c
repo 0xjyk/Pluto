@@ -1,5 +1,5 @@
-#define __builtin_va_list char *
-#define __attribute__(a) 
+//#define __builtin_va_list char *
+//#define __attribute__(a) 
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>

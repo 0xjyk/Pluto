@@ -392,6 +392,8 @@ Token make_token(token tok);
 // parse.c 
 Node parse(char *pp_file);
 void dump_AST(Node n, int indet);
+void dump_cpp(char *pp_file);
+char *merge_string(Token tok);
 
 // error.c 
 void warning(Location l, const char *msg);
@@ -412,7 +414,7 @@ Type make_struct(int id, char *tag, Location l);
 Type make_func(Type t, Vector proto);
 Type make_ptr(Type t);
 Type make_array(Type t, int size, int align);
-Type make_dup_array(Type t, int size, int align);
+Type make_dup_array(Type arr, int size, int align);
 Type atop(Type t);
 Type array_type(Type t);
 Type deref(Type t);
@@ -429,6 +431,7 @@ char *func_to_string(Type t);
 _Bool is_basetype(Type t);
 int variadic(Type t);
 _Bool match_proto(Node arg_list, Type t);
+_Bool conforms(Type l, Type r);
 _Bool expect_noargs(Type t);
 Field get_member(Type su, char *member);
 Type fieldtype(Type su, Type f);
