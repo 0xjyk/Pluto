@@ -538,7 +538,13 @@ char *ttos(Type t) {
         if (isarray(t)) {
             return array_to_string(t);
         } else if (isstructunion(t)) {
-             strcat(str, struct_to_string(t));
+             strcat(str, structname(t));
+             if (t->u.sym->defined && !t->printed) {
+                // call function to print struct to file and mark as printed
+                t->printed = 1;
+                print_struct(t, 1);
+                fprintf(typesfile, ";\n\n");
+             }
              if (isqual(t)) {
                 t = t->type;
              }
@@ -576,7 +582,7 @@ char *ttos(Type t) {
     return str;
 }
 
-char *struct_to_string(Type t) {
+char *struct_to_string(Type t, int indent) {
     char *str = alloc(200, PERM);
     *str = '\0';
     // print type specifier, type qualifier and keyword
@@ -590,33 +596,75 @@ char *struct_to_string(Type t) {
     strcat(str, t->u.sym->name);
 
     // print prototype
-
     Field fd = t->u.sym->u.s.flist;
     _Bool print_body = 0;
-    _Bool ls = 0;
     if (fd)
         print_body = 1;
-    if (print_body)
-        strcat(str, "{");
+    if (print_body) 
+        strcat(str, "{\n");
+    indent++;
     while (fd) {
-        if (!ls) 
-            ls = 1;
-        else
+        for (int i = 0; i < indent; i++)
+            strcat(str, "  ");
+        if (isstructunion(fd->type))
+            strcat(str, struct_to_string(fd->type, indent + 1));
+        else 
+            strcat(str, ttos(fd->type));
+        if (!isptr(fd->type))
             strcat(str, " ");
-        strcat(str, ttos(fd->type));
-        strcat(str, " ");
         strcat(str, fd->name);
         if (fd->bitsize) {
             strcat(str, ":");
             strcat(str, dtos(fd->bitsize));
         }
         
-        strcat(str, ";");
+        strcat(str, ";\n");
         fd = fd->next;
     }
     if (print_body)
         strcat(str, "}");
     return str;
+}
+
+void print_struct(Type t, int indent) {
+    // assumes typesfiles is open for printing
+    if (!typesfile)
+        return;
+    char indent_string[indent + 1]; *indent_string = '\0';
+    for (int i = 0; i < indent; i++)
+        strcat(indent_string, "\t");
+    char closing_indent_string[indent - 1 + 1]; *closing_indent_string = '\0';
+    strncat(closing_indent_string, indent_string, strlen(indent_string) - 1);
+    // print type specifier, type qualifier and keyword
+    if (isqual(t)) {
+        fprintf(typesfile, "%s ", t->strrep);
+        t = t->type;
+    }
+    fprintf(typesfile, "%s %s",t->strrep, t->u.sym->name);
+    // print prototype
+    Field fd = t->u.sym->u.s.flist;
+    _Bool print_body = fd ? 1 : 0;
+    if (print_body)
+        fprintf(typesfile, " {\n%s", indent_string);
+    while (fd) {
+        // print type
+        if (isstructunion(fd->type))
+            print_struct(fd->type, indent + 1);
+        else 
+            fprintf(typesfile, "%s", ttos(fd->type));
+        // print name
+        if (!isptr(fd->type))
+            fprintf(typesfile, " %s", fd->name);
+        else 
+            fprintf(typesfile, "%s", fd->name);
+        if (fd->bitsize)
+            fprintf(typesfile, ":%d", fd->bitsize);
+        fprintf(typesfile, ";\n%s", fd->next ? indent_string : closing_indent_string);
+
+        fd = fd->next;
+    }
+    if (print_body)
+        fprintf(typesfile, "}");
 }
 
 char *func_to_string(Type t) {
@@ -1038,6 +1086,8 @@ _Bool iscompatible(Type t1, Type t2) {
         (isstructunion(t2) && !isstructunion(t1)))
         return 0;
     if (isstructunion(t1) && isstructunion(t2)) {
+        if (t1->u.sym->name != t2->u.sym->name)
+            return 0;
         if (t1->id != t2->id)
             return 0;
         if (!t1->u.sym->defined || !t2->u.sym->defined)

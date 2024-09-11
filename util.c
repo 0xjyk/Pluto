@@ -2,6 +2,7 @@
 int num_files;
 char **infiles;
 Vector tempfiles;
+FILE *typesfile;
 Vector ppfiles;
 unsigned char JOBSCOPE;
 
@@ -116,6 +117,20 @@ void preprocess() {
             fprintf(stderr, "coudn't preprocess %s\n", infiles[i]);
             exit(EXIT_FAILURE);
         } 
+    }
+}
+
+void create_sudumpfile(char *fn) {
+    // structure the file name
+    char str[strlen(fn) - 2 + strlen("dump") + 1];
+    *str = '\0';
+    strncat(str, fn, strlen(fn) - 2);
+    strcat(str,"types");
+    // open the file for writing
+    typesfile = fopen(str, "w+");
+    if (!typesfile) {
+        fprintf(stderr, "couldn't create types file");
+        exit(EXIT_FAILURE);
     }
 }
 

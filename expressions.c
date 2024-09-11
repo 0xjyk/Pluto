@@ -1,6 +1,9 @@
 #include "pluto.h"
 #include "include/parse.h"
 
+Type compound_cast;
+_Bool consumed;
+
 // expressions
 Node primary_expression(){
     // identifier
@@ -227,57 +230,21 @@ Node postfix_expression(){
     Token tok = lex();
     Node pf_root;
     if (tok->subtype == LCBRAC) {
-        pf_root = make_node(ND_COMP_LIT, PERM);
-        pf_root->loc = tok->loc;
-        Node init_list = initializer_list();
-        add_child(pf_root, &init_list);
-        if ((tok = lex())->subtype != RCBRAC) {
-                error(&tok->loc, "expected closing '}' after initializer list in compound literal");
-                restore_tok(&tok);
-        }
+        restore_tok(&tok);
+        Node init = initializer();
+        // also need to ensure that compound cast is complete or an array of unspecified size
+        if (isstructunion(compound_cast))
+            check_init(compound_cast, init, &compound_cast->u.sym->u.s.flist, 0);
+        else 
+            check_init(compound_cast, init, 0, 0);
+        pf_root = init;
+        pf_root->lval = 1; 
+        pf_root->rval = 1;
+        consumed = 1;
     } else {
         restore_tok(&tok);
         pf_root = primary_expression();
     }
-
-
-/*
-
-    // could be either a compound literal or ( expression )
-    if (tok->subtype == LBRAC) {
-        Token tokcpy = tok;
-        tok = lex(); 
-        if (!first(ND_TYPENAME, tok)) {
-            // restore in opposite order of retrieval
-            restore_tok(&tok);
-            restore_tok(&tokcpy);
-            pf_root = primary_expression();
-        } else {
-            // type_name
-            pf_root = make_node(ND_COMP_LIT, PERM);
-            restore_tok(&tok);
-            pf_root->type = type_name();
-            if ((tok = lex())->subtype != RBRAC) {
-                restore_tok(&tok);
-                error(&tok->loc, "expected closing ')' after type name in compound literal");
-            }
-            // { initializer_list }
-            if ((tok = lex())->subtype != LCBRAC) {
-                error(&tok->loc, "expected opening '(' before initializer list in compound literal");
-                restore_tok(&tok);
-            } 
-            Node init_list = initializer_list();
-            if ((tok = lex())->subtype != RCBRAC) {
-                error(&tok->loc, "expected closing '}' after initializer list in compound literal");
-                restore_tok(&tok);
-            }
-            add_child(pf_root, &init_list);
-        }
-    } else {
-        restore_tok(&tok);
-        pf_root = primary_expression();
-    }
-*/
     while (1) {
         tok = lex();
         if (tok->type != PUNCT) {
@@ -773,20 +740,19 @@ Node cast_expression(){
         // process type-name ..
         restore_tok(&tok);
         tc = type_cast();
+        compound_cast = tc;
         if (tc) {
-            if (tc != voidtype && !isscalar(tc)) {
-                error(&tok->loc, "type case shall either be of void type or scalar type");
-            }
             Node ce = cast_expression();
-            if (!isscalar(ce->type)) {
-                error(&tok->loc, "operand of a type case is required to have scalar type");
-            }
             if ((isptr(tc) && isdouble(ce->type)) || 
                 (isdouble(tc) && isptr(ce->type))) {
                 error(&tok->loc, "float to pointer / pointer to float conversions are not permitted");
             }
-            ce->type = tc;
-            ce->lval = 0;
+            if (consumed) {
+                consumed = 0;
+            } else {
+                ce->type = tc;
+                ce->lval = 0;
+            }
             ce->rval = 1;
             return ce;
         }   

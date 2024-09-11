@@ -713,8 +713,10 @@ Node init_declarator(Type ds){
         Node init = initializer();
         if (isstructunion(dd->type))
             check_init(dd->sym->type, init, &dd->type->u.sym->u.s.flist, 0);
-        else 
+        else if (isarray(dd->type))
             check_init(dd->sym->type, init, 0, 0);
+        // do typechecking for other constructs
+        // also typecheck assignment todo
         s = lookup(dd->sym->name, identifiers);
         if (s && s->scope == level && s->defined)
             error(&dd->loc, "attempted to redefine previously defined identifier");

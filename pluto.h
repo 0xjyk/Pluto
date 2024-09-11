@@ -177,6 +177,8 @@ typedef struct type {
             Vector proto;
         } f;
     } u;
+    // used by dumpAST
+    _Bool printed;
 } type;
 
 typedef struct field *Field;
@@ -293,6 +295,7 @@ static char temp_dir_name[] = "/__temp__/";
 static char temp_dir[PATH_MAX];
 static char pp_suffix[] = ".pp";
 extern Vector tempfiles;
+extern FILE *typesfile;
 extern Vector ppfiles;
 extern location loc;
 extern buffer buf;
@@ -358,6 +361,7 @@ extern token_store *ts;
 void parseoptions(int argc, char **argv);
 void usage();
 void preprocess();
+void create_sudumpfile(char *fn);
 void process();
 void remove_tempfiles();
 
@@ -427,7 +431,8 @@ void rmtypes(int lev);
 void typeinit();
 void dumptypes();
 char *ttos(Type t);
-char *struct_to_string(Type t);
+char *struct_to_string(Type t, int indent);
+void print_struct(Type t, int indent);
 char *func_to_string(Type t);
 _Bool is_basetype(Type t);
 int variadic(Type t);

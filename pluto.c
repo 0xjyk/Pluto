@@ -15,7 +15,6 @@
 */
 #include "pluto.h"
 
-
 int main(int argc, char *argv[]) {
     if (atexit(remove_tempfiles)) {
         fprintf(stderr, "Couldn't set exit function\n");
@@ -38,6 +37,9 @@ int main(int argc, char *argv[]) {
         } else if (JOBSCOPE == PARSE) {
             Node root = parse((char *)vec_get(ppfiles, i));
             //dump_stringpool();
+            create_sudumpfile((char *)vec_get(ppfiles, i));
+            if (!typesfile) {
+            }
             dump_AST(root, 0);
         } else if (JOBSCOPE == TYPECHECK) {
             dump_cpp((char *)vec_get(ppfiles, i));
